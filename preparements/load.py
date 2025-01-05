@@ -9,6 +9,8 @@ class ImageGrabber:
     def __init__(self, videoPath:str):
         self.videoPath = videoPath
         self.cap = cv2.VideoCapture(self.videoPath)
+        self.total_frames = self.cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        self.fps = self.cap.get(cv2.CAP_PROP_FPS)
 
     
     def getVideoPaths():
@@ -29,16 +31,15 @@ class ImageGrabber:
             frame: np.ndarray'''
 
         if frame_index.isdigit():
-            if not 0 <= frame_index <= total_frames:
+            if not 0 <= frame_index <= self.total_frames:
                 raise ValueError('Frame does not exist, since it is out of bound')
         if frame_index == 'Random':
-            total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            frame_index = random.randint(0, total_frames)
+            frame_index = random.randint(0, self.total_frames)
             
 
         # test if the video is found.
         if not self.cap.isOpened():
-            raise ValueError('Failed to open video file')
+            return 1
         
         if frame_index != 'Next':
             # sets the position for the frame to be grabbed.
@@ -48,7 +49,7 @@ class ImageGrabber:
         ret, frame = self.cap.read() # here ret is bool if it worked.
 
         if not ret:
-            raise ValueError('Failed to retrieve frame')
+            return 1
 
         # resizing the frame
         yLen, xLen, _ = frame.shape
@@ -74,7 +75,7 @@ class ImageGrabber:
 if __name__ == '__main__':
     path = ImageGrabber.getVideoPaths()[0]
     grabber = ImageGrabber(path)
-    grabber.getImg()
+    grabber.getImg('Random')
     grabber.viewFrame()
     plt.show()
     
