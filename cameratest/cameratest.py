@@ -4,6 +4,9 @@ from picamera2.outputs import FileOutput
 from time import sleep
 import subprocess
 
+save_to = ['/media/gustavgamstedt/Samsung USB', '']
+save_to = save_to[0]
+
 # Initiera kameran
 camera = Picamera2()
 
