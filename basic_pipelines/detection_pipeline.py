@@ -106,11 +106,14 @@ class GStreamerDetectionApp(GStreamerApp):
             f'{display_pipeline}'
         )
         print(pipeline_string)
-        return pipeline_string
-
+        return 
 if __name__ == "__main__":
     # Create an instance of the user app callback class
     user_data = app_callback_class()
     app_callback = dummy_callback
     app = GStreamerDetectionApp(app_callback, user_data)
     app.run()
+
+
+
+

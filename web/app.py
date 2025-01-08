@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
-from cameraRecorder import get_paths, record_video, get_available_space, get_file_size
+from camerafunc.cameraRecorder import get_paths, record_video, get_available_space, get_file_size
 import subprocess
 import threading
 import os
@@ -73,9 +73,6 @@ def handle_button_pressed(data):
     elif data == 'stop_button':
         stop_button()
 
-def run():
-    socketio.run(app, debug=True)
-    
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)

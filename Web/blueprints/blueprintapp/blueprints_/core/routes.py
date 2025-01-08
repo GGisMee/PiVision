@@ -1,4 +1,4 @@
-from flask import render_template, Blueprint
+from web import render_template, Blueprint
 
 
 # like creating an app, but for blueprints

@@ -1,4 +1,4 @@
-from flask import request, render_template, redirect, url_for, Blueprint
+from web import request, render_template, redirect, url_for, Blueprint
 
 # If this doesn't workthen mark main directory as sources root, see more at https://www.youtube.com/watch?v=oQ5UfJqW5Jo&list=PLCkHpammh_dhRZ2Codl6j_h1ut4Nx2lfM&index=5, 3:06:50
 from blueprintapp.app import db

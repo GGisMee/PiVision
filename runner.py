@@ -1,8 +1,8 @@
-import sys
-import os
-sys.path.append(f'{os.getcwd()}/cameratest/flask')
-import cameratest.flask.app as app
+# https://chatgpt.com/share/677ed560-6fa4-8001-9588-3bd453b0bf3d
 
 
-if __name__ == '__main__':
-    app.run()
+import subprocess
+
+# Command to run the file using python -m
+command = ['python', '-m', 'web.app']  # Assuming 'flask.app' is the module you want to run
+subprocess.run(command)
