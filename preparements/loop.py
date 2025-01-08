@@ -8,7 +8,7 @@ from ultralytics import YOLO
 import supervision as sv
 import time
 
-import load, runner
+import load, run_with_setup_sh
 
 processing_fps = 5
 
@@ -39,7 +39,7 @@ while grabber.cap.isOpened():
     
     print(f'{i} done of {grabber.total_frames}, now: {grabber.cap.get(cv2.CAP_PROP_POS_FRAMES)}')
 
-    detections = runner.predict(model, image, tracker)
+    detections = run_with_setup_sh.predict(model, image, tracker)
     if not isinstance(detections, tuple):
         # detections.xyxy
         for obj in detections:

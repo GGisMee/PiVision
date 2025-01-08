@@ -14,7 +14,10 @@ import glob
 import re
 
 
-def get_paths(no_usb = False):
+# Variable to stop the recording
+recording: bool = False
+
+def get_paths(no_usb = False, new:bool = True):
     '''Gets both the path for the new video and for the directory for the video'''
     # Define the path to your external USB
     usb_path = '/media/gustavgamstedt/Samsung USB'  # Change this to the correct path of your USB
@@ -28,24 +31,33 @@ def get_paths(no_usb = False):
         directory = usb_path
 
     # gets all previous videopaths.
-    pattern = f'{directory}/recording*.h264'
+    pattern = f'{directory}/recorded_video*.h264'
     prev_videos: list[str] = glob.glob(pattern)
 
     # gets the next suffix from the videos in the folder
     nextSuffix = 0
     for video in prev_videos:
-        match = re.match(r'.*/recording(\d+)\.h264', video)
+        match = re.match(r'.*/recorded_video(\d+)\.h264', video)
         if match:
             currentSuffix = int(match.group(1))
-            nextSuffix = currentSuffix+1 if nextSuffix < currentSuffix else nextSuffix
+            if new:
+                nextSuffix = currentSuffix+1 if nextSuffix <= currentSuffix else nextSuffix
+            else:
+                nextSuffix = currentSuffix if nextSuffix < currentSuffix else nextSuffix
+
 
     video_file_path = os.path.join(directory, f'recorded_video{nextSuffix}.h264')
-    return directory, video_file_path
+    video_file_path_mp4 = os.path.join(directory, f'recorded_video{nextSuffix}.mp4')
+    return directory, video_file_path, video_file_path_mp4
 
 # Function to check available space in GB
 def get_available_space(path):
     total, used, free = shutil.disk_usage(path)
     return free // (2**30)  # Convert from bytes to GB
+
+def get_file_size(file_path:str):
+    file_size = os.path.getsize(file_path)  # Size in bytes
+    return file_size // (2**30)
 
 # Function to check if there is enough space for recording
 def check_space_needed(file_size_in_gb):
@@ -57,14 +69,18 @@ def check_space_needed(file_size_in_gb):
     return True
 
 # Function to record a video
-def record_video():
+def record_video(output_file:str, output_dir:str, stopGB: int = 1, camera_on_checker = None, camera_started = None) -> int:
+    '''
+    
+    args:
+        stopGB: int = stops recording when stopGB gigabytes are remaining.'''
+    global camera
+    if not camera_started():
+        # Initiera kameran
+        camera = Picamera2()
 
-
-    # Initiera kameran
-    camera = Picamera2()
-
-    # Ställ in för att visa förhandsvisningen
-    camera.start_preview(Preview.QT)
+        # Ställ in för att visa förhandsvisningen
+        camera.start_preview(Preview.DRM)
 
     # Konfigurera kameran för video
     camera.configure(camera.create_video_configuration())
@@ -76,20 +92,24 @@ def record_video():
     encoder = H264Encoder()
 
     # Tillfällig H.264-utdatafil
-    output = FileOutput(h264_output_file)
+    output = FileOutput(output_file)
 
     # Starta inspelningen med encoder och utdata
     camera.start_recording(encoder, output)
 
     # Filma i 10 sekunder
     print("Recording started")
-    w
+    while get_available_space(output_dir) > stopGB:
+        if camera_on_checker and not camera_on_checker():
+            print('stopped by user')
+            break
+        sleep(1)
     print("Recording stopped")
 
     # Stoppa inspelningen
     camera.stop_recording()
 
-    return h264_output_file
+    return 0
 
 def convert():
     # Konvertera H.264 till MP4 med ffmpeg
@@ -101,9 +121,10 @@ def convert():
 
     print(f"Video saved as {mp4_output_file}")
 
+
 if __name__ == "__main__":
-    directory, video_path = get_paths(False)
+    directory, video_path, video_file_path_mp4 = get_paths(False, True)
     print(f'Video Path: {video_path}')
-    # free_space = get_available_space(directory)
-    # print(f'Free space: {free_space} GB')
-    # h264_output_file = record_video()
+    free_space = get_available_space(directory)
+    print(f'Free space: {free_space} GB')
+    # h264_output_file = record_video(directory, video_path, 3, None)

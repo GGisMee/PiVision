@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Flask App</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 30px;
+        }
+        .btn {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 5px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        #output {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Real-Time Flask App</h1>
+    
+    <button class="btn" onclick="sendAction('button_one')">Start recording</button>
+    <button class="btn" onclick="sendAction('button_two')">Stop recording</button>
+    <button class="btn" onclick="sendAction('button_three')">Save as mp4</button>
+    <button class="btn" onclick="sendAction('stop_button')">Close down</button>
+
+    <div id="output"></div>
+
+    <script>
+        const socket = io(); // Connect to the server
+
+        // Listen for updates from the server
+        socket.on('update', function(data) {
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = data;
+        });
+
+        // Function to send button action to the server
+        function sendAction(action) {
+            socket.emit('button_pressed', action);
+        }
+    </script>
+</body>
+</html>
