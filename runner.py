@@ -4,6 +4,10 @@
 import subprocess
 from picamera2 import Picamera2
 import time
+from datetime import datetime
+import sys
+print(f"Python executable: {sys.executable}")
+
 
 def check_internet():
     def get_response():
@@ -37,6 +41,17 @@ def check_camera():
 check_internet()
 check_camera()
 
+def log_timestamp():
+    try:
+        with open("/home/gustavgamstedt/Desktop/Programming/PiVision/run.txt", "a") as file:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            file.write(f"Script ran at: {timestamp}\n")
+            print(f"Timestamp logged: {timestamp}")
+    except Exception as e:
+        print(f"Failed to log timestamp: {e}")
+
+
 # Command to run the file using python -m
 command = ['python', '-m', 'web.app']  # Assuming 'flask.app' is the module you want to run
 subprocess.run(command)
+log_timestamp()

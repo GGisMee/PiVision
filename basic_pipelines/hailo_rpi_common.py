@@ -118,6 +118,8 @@ def get_default_parser():
     parser = argparse.ArgumentParser(description="Hailo App Help")
     current_path = os.path.dirname(os.path.abspath(__file__))
     default_video_source = os.path.join(current_path, '../resources/detection0.mp4')
+    if not os.path.exists(default_video_source):
+        print(f'{default_video_source} not found')
     parser.add_argument(
         "--input", "-i", type=str, default=default_video_source,
         help="Input source. Can be a file, USB or RPi camera (CSI camera module). \

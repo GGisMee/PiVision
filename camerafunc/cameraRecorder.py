@@ -80,7 +80,7 @@ def record_video(output_file:str, output_dir:str, stopGB: int = 1, camera_on_che
         camera = Picamera2()
 
         # Ställ in för att visa förhandsvisningen
-        camera.start_preview(Preview.DRM)
+        camera.start_preview(Preview.NULL)
 
     # Konfigurera kameran för video
     camera.configure(camera.create_video_configuration())
@@ -127,4 +127,4 @@ if __name__ == "__main__":
     print(f'Video Path: {video_path}')
     free_space = get_available_space(directory)
     print(f'Free space: {free_space} GB')
-    # h264_output_file = record_video(directory, video_path, 3, None)
+    h264_output_file = record_video(video_path,directory, 3, lambda: True, lambda: False)
