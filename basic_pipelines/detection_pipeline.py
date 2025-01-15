@@ -9,7 +9,7 @@ import setproctitle
 import cv2
 import time
 import hailo
-from hailo_rpi_common import (
+from basic_pipelines.hailo_rpi_common import (
     get_default_parser,
     QUEUE,
     SOURCE_PIPELINE,

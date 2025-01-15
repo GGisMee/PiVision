@@ -1,3 +1,5 @@
 myenv
 venv
 venv_hailo_rpi5_examples
+*.pyc
+*.log
