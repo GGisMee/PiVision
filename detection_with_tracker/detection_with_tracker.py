@@ -11,33 +11,104 @@ import sys
 import os
 from typing import Dict, List, Tuple
 import threading
+import time
+
+from picamera2 import Picamera2
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils import HailoAsyncInference
 
+class Paramaters:
+    '''A container for the variables in the detection algoritm'''
 
-def initialize_arg_parser() -> argparse.ArgumentParser:
-    """Initialize argument parser for the script."""
-    parser = argparse.ArgumentParser(
-        description="Detection Example - Tracker with ByteTrack and Supervision"
-    )
-    parser.add_argument(
-        "-n", "--net", help="Path for the HEF model.", default="model/yolo8n.hef"
-    )
-    parser.add_argument(
-        "-i", "--input_video", default="input_video.mp4", help="Path to the input video."
-    )
-    parser.add_argument(
-        "-o", "--output_video", default="output_video.mp4", help="Path to the output video."
-    )
-    parser.add_argument(
-        "-l", "--labels", default="coco.txt", help="Path to a text file containing labels."
-    )
-    parser.add_argument(
-        "-s", "--score_thresh", type=float, default=0.5, help="Score threshold - between 0 and 1."
-    )
-    return parser
+    def __init__(self):
+        self.use_rpi = None # until changed
+
+    def _test_existance(self,paths:list[str]):
+        '''Tests paths if they exist'''
+        for specific_path in paths:
+            if not os.path.exists(specific_path):
+                print(f"{specific_path} was not found")
+                assert FileNotFoundError(f'File of path {specific_path} does not exist')
+
+    def set_model_paths(self, hef_path:str, labels_path:str=None):
+        '''Sets the paths for the model'''
+        if not labels_path:
+            labels_path = os.getcwd()+"/coco.txt"
+
+        self._test_existance([hef_path, labels_path])
+        
+
+        self.hef_path = hef_path
+        self.labels_path = labels_path
+
+
+    def set_model_info(self, score_threshold:float = 0.5):
+        '''Sets the parameters for the model, that is how the model should act'''
+        self.score_threshold = score_threshold
+
+
+    def set_input_video(self, input_video_path:str):
+        '''If the raspberry pi shouldn't be used'''
+        if self.use_rpi != None:
+            raise ValueError('RPI set to on')
+        self._test_existance([input_video_path])
+        
+        self.input_video_path = input_video_path
+
+    def set_output_video(self, output_video_path:str):
+        self._test_existance([output_video_path])
+        self.output_video_path:str= output_video_path
+
+    
+
+    def setBools(self,use_rpi:bool = False, displayFrame:bool=False):
+        self.use_rpi = use_rpi
+        self.displayFrame = displayFrame
+
+class FrameGrabber:
+    '''A class to handle the frame creation process'''
+    def __init__(self, parameters:Paramaters):
+        self.use_rpi = parameters.use_rpi
+        self.running = True
+        self.index = 0
+
+        if self.use_rpi:
+            self.camera = Picamera2()
+
+            camera_config = self.camera.create_video_configuration(main={"size": (640, 640), 'format': 'RGB888'})
+            self.camera.configure(camera_config)
+            self.camera.start()
+
+        else:
+            self.frame_generator = sv.get_video_frames_generator(source_path=parameters.input_video_path)
+            self.video_info = sv.VideoInfo.from_video_path(video_path=parameters.input_video_path)
+    
+    def get_wh_set_generator(self):
+        if self.use_rpi:
+            video_w, video_h = 640, 640
+        else:
+            video_w, video_h = self.video_info.resolution_wh
+        return video_w, video_h
+
+    def get_frame(self):
+        self.index += 1
+        # print(f'{self.index} - {self.video_info.total_frames}')
+        if self.use_rpi:
+            frame = self.camera.capture_array()
+
+            #* Temporary code to stop capturing:
+            if self.index == 500:
+                return True
+        else:
+            if self.index == self.video_info.total_frames:
+                # To check that the video has been run through
+                return True
+            frame = next(self.frame_generator)
+        return frame
+     
+
 
 def display_frame(frame):
     """
@@ -51,7 +122,6 @@ def display_frame(frame):
         return False  # Signal to stop the program
     return True
 
-
 def preprocess_frame(
     frame: np.ndarray, model_h: int, model_w: int, video_h: int, video_w: int
 ) -> np.ndarray:
@@ -59,7 +129,6 @@ def preprocess_frame(
     if model_h != video_h or model_w != video_w:
         return cv2.resize(frame, (model_w, model_h))
     return frame
-
 
 def extract_detections(
     hailo_output: List[np.ndarray], h: int, w: int, threshold: float = 0.5
@@ -99,7 +168,6 @@ def extract_detections(
         "num_detections": num_detections,
     }
 
-
 def postprocess_detections(
     frame: np.ndarray,
     detections: Dict[str, np.ndarray],
@@ -132,28 +200,28 @@ def postprocess_detections(
     annotated_labeled_frame: np.ndarray = label_annotator.annotate(
         scene=annotated_frame, detections=sv_detections, labels=labels
     )
-    return annotated_labeled_frame
+    return annotated_labeled_frame, sv_detections
 
 
-def main(hef_path:str = 'model/yolov8n.pt', input_video:str = 'input_video.mp4') -> None:
-    """Main function to run the video processing."""
-    # Parse command-line arguments
-    args = initialize_arg_parser().parse_args()
+
+def main(parameters:Paramaters) -> None:
+    """Main function to run the video processing."""    
+    
 
     input_queue: queue.Queue = queue.Queue()
     output_queue: queue.Queue = queue.Queue()
 
     hailo_inference = HailoAsyncInference(
-        hef_path=hef_path,
+        hef_path=parameters.hef_path,
         input_queue=input_queue,
         output_queue=output_queue,
     )
     model_h, model_w, _ = hailo_inference.get_input_shape()
 
+    # start the framegrabber:
+    framegrabber = FrameGrabber(parameters)
+    frame_w, frame_h = framegrabber.get_wh_set_generator()
     # Initialize components for video processing
-    frame_generator = sv.get_video_frames_generator(source_path=input_video)
-    video_info = sv.VideoInfo.from_video_path(video_path=input_video)
-    video_w, video_h = video_info.resolution_wh
     box_annotator = sv.RoundBoxAnnotator()
     label_annotator = sv.LabelAnnotator()
     tracker = sv.ByteTrack()
@@ -161,67 +229,68 @@ def main(hef_path:str = 'model/yolov8n.pt', input_video:str = 'input_video.mp4')
     line_zone = sv.LineZone(start=start, end=end)
 
     # Load class names from the labels file
-    with open(args.labels, "r", encoding="utf-8") as f:
+    with open(parameters.labels_path, "r", encoding="utf-8") as f:
         class_names: List[str] = f.read().splitlines()
 
     # Start the asynchronous inference in a separate thread
     inference_thread: threading.Thread = threading.Thread(target=hailo_inference.run)
     inference_thread.start()
 
+    
+
     # Initialize video sink for output
-    with sv.VideoSink(target_path=args.output_video, video_info=video_info) as sink:
-        # Process each frame in the video
-        for frame in tqdm(frame_generator, total=video_info.total_frames):
-            # Preprocess the frame
-            preprocessed_frame: np.ndarray = preprocess_frame(
-                frame, model_h, model_w, video_h, video_w
-            )
+    while framegrabber.running == True:
+        start_time = time.time()
+        frame=framegrabber.get_frame()
+        if isinstance(frame, bool):
+            break
+        # Preprocess the frame
+        preprocessed_frame: np.ndarray = preprocess_frame(
+            frame, model_h, model_w, frame_h, frame_w
+        )
 
-            # Put the frame into the input queue for inference
-            input_queue.put([preprocessed_frame])
+        # Put the frame into the input queue for inference
+        input_queue.put([preprocessed_frame])
 
-            # Get the inference result from the output queue
-            results: List[np.ndarray]
-            _, results = output_queue.get()
+        # Get the inference result from the output queue
+        results: List[np.ndarray]
+        _, results = output_queue.get()
 
-            # Deals with the expanded results from hailort versions < 4.19.0
-            if len(results) == 1:
-                results = results[0]
+        # Deals with the expanded results from hailort versions < 4.19.0
+        if len(results) == 1:
+            results = results[0]
 
-            # Extract detections from the inference results
-            detections: Dict[str, np.ndarray] = extract_detections(
-                results, video_h, video_w, args.score_thresh
-            )
+        # Extract detections from the inference results
+        detections: Dict[str, np.ndarray] = extract_detections(
+            results, frame_h, frame_w, parameters.score_threshold
+        )
+        # print(f'fps: {1/(time.time()-start_time)}')
 
-            if len(detections['class_id']) == 0:
-                continue
+        if len(detections['class_id']) == 0:
+            continue
 
-            # Postprocess the detections and annotate the frame
-            annotated_labeled_frame: np.ndarray = postprocess_detections(
-                frame, detections, class_names, tracker, box_annotator, label_annotator
-            )
-
-
-            # Write annotated frame to output video
-            sink.write_frame(frame=annotated_labeled_frame)
-
+        # Postprocess the detections and annotate the frame
+        annotated_labeled_frame: np.ndarray = postprocess_detections(
+            frame, detections, class_names, tracker, box_annotator, label_annotator
+        )
+        if parameters.displayFrame:
             if not display_frame(annotated_labeled_frame):
                 break
-
-
 
     # Signal the inference thread to stop and wait for it to finish
     input_queue.put(None)
     inference_thread.join()
 
+def setParameters():
+    parameters = Paramaters()
+    parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
+    # parameters.set_input_video(input_video_path='resources/detection0.mp4')
+    parameters.set_output_video(output_video_path='output/output0')
+    parameters.set_model_info()
+    parameters.setBools(use_rpi=True, displayFrame=False)
+    return parameters
+
 
 if __name__ == "__main__":
-    hef_path:str = 'model/yolov10n.hef'
-    input_video:str = 'resources/detection0.mp4'
-    if not os.path.exists(hef_path):
-        print("hef_path was not found")
-        exit()
-    if not os.path.exists(input_video):
-        print("input_video_path was not found")
-        exit()
-    main(hef_path, input_video)
+    parameters = setParameters() 
+    main(parameters)
