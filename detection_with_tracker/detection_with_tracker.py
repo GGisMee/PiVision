@@ -21,10 +21,25 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils import HailoAsyncInference
 
 class Parameters:
-    '''A container for the variables in the detection algoritm'''
+    '''A container for the variables in the detection algoritm
+    
+    Optional:
+        set_model_paths
+        set_model_info
+        set_input_video
+        setBools
+    '''
+
+    DEFAULT_VIDEO_PATHS = ['resources/videos/detection0.mp4', 'resources/videos/close616.mov']
 
     def __init__(self):
-        self.use_rpi = None # until changed
+        # Default values if not changes
+        self.use_rpi = True # if not set_input_video
+        self.create_output_video: bool = None # until changed
+        self.score_threshold = 0.5
+        self.displayFrame = True
+        self.hef_path = 'model/yolo10n.hef'
+        self.labels_path = "detection_with_tracker/coco.txt"
 
     def _test_existance(self,paths:list[str]):
         '''Tests paths if they exist'''
@@ -52,21 +67,19 @@ class Parameters:
 
     def set_input_video(self, input_video_path:str):
         '''If the raspberry pi shouldn't be used'''
-        if self.use_rpi != None:
-            raise ValueError('RPI set to on')
+        self.use_rpi = False
         self._test_existance([input_video_path])
-        
         self.input_video_path = input_video_path
 
-    def set_output_video(self, output_video_path:str):
+    def create_output(self, output_video_path:str):
         self._test_existance([output_video_path])
+        self.create_output_video = True
         self.output_video_path:str= output_video_path
 
     
 
-    def setBools(self,use_rpi:bool = False, displayFrame:bool=False):
-        self.use_rpi = use_rpi
-        self.displayFrame = displayFrame
+    def disable_displaying(self):
+        self.displayFrame = False
 
 class FrameGrabber:
     '''A class to handle the frame creation process'''
@@ -176,6 +189,8 @@ def postprocess_detections(
     tracker: sv.ByteTrack,
     box_annotator: sv.RoundBoxAnnotator,
     label_annotator: sv.LabelAnnotator,
+    distance_estimater: DistanceEstimater
+
 ) -> np.ndarray:
     """Postprocess the detections by annotating the frame with bounding boxes and labels."""
     sv_detections = sv.Detections(
@@ -187,11 +202,15 @@ def postprocess_detections(
     # Update detections with tracking information
     sv_detections = tracker.update_with_detections(sv_detections)
 
+    distance_estimater.add_detection(sv_detections)
+    
+    labels: List[str] = distance_estimater.get_display_labels(sv_detections)
+
     # Generate tracked labels for annotated objects
-    labels: List[str] = [
-        f"#{tracker_id} {class_names[class_id]}"
-        for class_id, tracker_id in zip(sv_detections.class_id, sv_detections.tracker_id)
-    ]
+    #labels: List[str] = [
+    #     f"#{tracker_id} {class_names[class_id]}"
+    #    for class_id, tracker_id in zip(sv_detections.class_id, sv_detections.tracker_id)
+    # ]
 
     # Annotate objects with bounding boxes
     annotated_frame: np.ndarray = box_annotator.annotate(
@@ -239,7 +258,7 @@ def main(parameters:Parameters) -> None:
     inference_thread: threading.Thread = threading.Thread(target=hailo_inference.run)
     inference_thread.start()
 
-    distance_estimater = DistanceEstimater(parameters)
+    distance_estimater = DistanceEstimater(parameters, class_names)
 
     # Initialize video sink for output
     while framegrabber.running == True:
@@ -273,11 +292,16 @@ def main(parameters:Parameters) -> None:
             continue
 
         # Postprocess the detections and annotate the frame
-        annotated_labeled_frame, sv_detections = postprocess_detections(
-            frame, detections, class_names, tracker, box_annotator, label_annotator
+        annotated_labeled_frame, _ = postprocess_detections(
+            frame=frame, 
+            detections=detections, 
+            class_names=class_names, 
+            tracker=tracker, 
+            box_annotator=box_annotator, 
+            label_annotator=label_annotator,
+            distance_estimater=distance_estimater
         )
 
-        distance_estimater.add_detection(sv_detections)
 
         if parameters.displayFrame:
             if not display_frame(annotated_labeled_frame):
@@ -290,10 +314,7 @@ def main(parameters:Parameters) -> None:
 def setParameters():
     parameters = Parameters()
     parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
-    parameters.set_input_video(input_video_path='resources/detection0.mp4')
-    parameters.set_output_video(output_video_path='output/output0')
-    parameters.set_model_info()
-    parameters.setBools(use_rpi=False, displayFrame=True)
+    parameters.set_input_video(input_video_path=Parameters.DEFAULT_VIDEO_PATHS[1])
     return parameters
 
 
