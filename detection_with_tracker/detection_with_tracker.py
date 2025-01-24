@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Example module for Hailo Detection + ByteTrack + Supervision."""
 
-import argparse
 import supervision as sv
 import numpy as np
 from tqdm import tqdm
@@ -13,6 +12,11 @@ from typing import Dict, List, Tuple
 import threading
 import time
 from picamera2 import Picamera2
+from rich.console import Console
+from rich.live import Live
+from rich.text import Text
+import psutil
+
 
 from calculate import DistanceEstimater
 
@@ -260,6 +264,13 @@ def main(parameters:Parameters) -> None:
 
     distance_estimater = DistanceEstimater(parameters, class_names)
 
+
+    # rich debug info:
+    console = Console()
+    live = Live(console=console, auto_refresh=True)
+    frame_count = 0
+    live.start()
+
     # Initialize video sink for output
     while framegrabber.running == True:
         start_time = time.time()
@@ -301,11 +312,24 @@ def main(parameters:Parameters) -> None:
             label_annotator=label_annotator,
             distance_estimater=distance_estimater
         )
+        # Increment frame counter
+        frame_count += 1
 
+        # Calculate FPS (frames per second)
+        frame_time = time.time() - start_time
+        fps = 1 / frame_time if frame_time > 0 else 0  # Avoid division by zero
+
+        # Create rich text to display in the live view
+        live_text = Text(f"Frame: {frame_count}, FPS: {fps:.2f}, CPU: {psutil.cpu_percent()}%", style="bold green")
+
+        # Update the live view with the latest frame info
+        live.update(live_text)
 
         if parameters.displayFrame:
             if not display_frame(annotated_labeled_frame):
                 break
+        
+    live.stop()
 
     # Signal the inference thread to stop and wait for it to finish
     input_queue.put(None)
