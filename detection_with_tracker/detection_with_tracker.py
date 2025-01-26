@@ -63,11 +63,9 @@ class Parameters:
         self.hef_path = hef_path
         self.labels_path = labels_path
 
-
     def set_model_info(self, score_threshold:float = 0.5):
         '''Sets the parameters for the model, that is how the model should act'''
         self.score_threshold = score_threshold
-
 
     def set_input_video(self, input_video_path:str):
         '''If the raspberry pi shouldn't be used'''
@@ -80,10 +78,8 @@ class Parameters:
         self.create_output_video = True
         self.output_video_path:str= output_video_path
 
-    
-
-    def disable_displaying(self):
-        self.displayFrame = False
+    def set_displaying(self, displayFrame:bool = False):
+        self.displayFrame = displayFrame
 
 class FrameGrabber:
     '''A class to handle the frame creation process'''
@@ -127,18 +123,54 @@ class FrameGrabber:
         return frame
      
 
+class Displayer:
+    '''A class to handle what is displayed both with cv2 tools and terminal'''
+    def __init__(self, parameters: Parameters):
+        self.use_rpi: bool = parameters.use_rpi
+        self.displayFrame: bool = parameters.displayFrame
+        self.frame_count: int = 0
+        self.setup_rich_debug()
 
-def display_frame(frame):
-    """
-    Display the frame in a window using OpenCV.
-    Press 'q' to exit the display window.
-    """
-    cv2.imshow("Object Detection", frame)  # Display the frame in a window titled "Object Detection"
+    def display_frame(self,frame):
+        """
+        Display the frame in a window using OpenCV.
+        Press 'q' to exit the display window.
+        """
+        if not self.displayFrame:
+            return True
+
+        cv2.imshow("Object Detection", frame)  # Display the frame in a window titled "Object Detection"
+
+        # Wait for a key press for 1 ms. Press 'q' to quit the display.
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            return False  # Signal to stop the program
+        return True
     
-    # Wait for a key press for 1 ms. Press 'q' to quit the display.
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        return False  # Signal to stop the program
-    return True
+    def setup_rich_debug(self):
+        # rich debug info:
+        self.console = Console()
+        self.live = Live(console=self.console, auto_refresh=True)
+        self.live.start()
+
+    def start_timer(self):
+        self.start_time = time.time()
+    def display_text(self):
+
+        # Increment frame counter
+        self.frame_count += 1
+
+        # Calculate FPS (frames per second)
+        frame_time = time.time() - self.start_time
+        fps = 1 / frame_time if frame_time > 0 else 0  # Avoid division by zero
+
+        # Create rich text to display in the live view
+        live_text = Text(f"Frame: {self.frame_count}, FPS: {fps:.2f}, CPU: {psutil.cpu_percent()}%", style="bold green")
+
+        # Update the live view with the latest frame info
+        self.live.update(live_text)
+
+    def stop_displaying(self):
+        self.live.stop()
 
 def preprocess_frame(
     frame: np.ndarray, model_h: int, model_w: int, video_h: int, video_w: int
@@ -244,9 +276,7 @@ def main(parameters:Parameters) -> None:
     )
     model_h, model_w, _ = hailo_inference.get_input_shape()
 
-    # start the framegrabber:
-    framegrabber = FrameGrabber(parameters)
-    frame_w, frame_h = framegrabber.get_wh_set_generator()
+    
     # Initialize components for video processing
     box_annotator = sv.RoundBoxAnnotator()
     label_annotator = sv.LabelAnnotator()
@@ -262,18 +292,23 @@ def main(parameters:Parameters) -> None:
     inference_thread: threading.Thread = threading.Thread(target=hailo_inference.run)
     inference_thread.start()
 
+    # setup custom classes
+    # start the framegrabber:
+    framegrabber = FrameGrabber(parameters)
+    frame_w, frame_h = framegrabber.get_wh_set_generator()
+
+    # setup the distance estimater
     distance_estimater = DistanceEstimater(parameters, class_names)
 
+    # setup the displayer
+    displayer = Displayer(parameters)
 
-    # rich debug info:
-    console = Console()
-    live = Live(console=console, auto_refresh=True)
-    frame_count = 0
-    live.start()
+
+    
 
     # Initialize video sink for output
     while framegrabber.running == True:
-        start_time = time.time()
+        displayer.start_timer()
         frame=framegrabber.get_frame()
         if isinstance(frame, bool):
             break
@@ -297,7 +332,9 @@ def main(parameters:Parameters) -> None:
         detections: Dict[str, np.ndarray] = extract_detections(
             results, frame_h, frame_w, parameters.score_threshold
         )
-        # print(f'fps: {1/(time.time()-start_time)}')
+
+        displayer.display_text()
+
 
         if len(detections['class_id']) == 0:
             continue
@@ -312,25 +349,16 @@ def main(parameters:Parameters) -> None:
             label_annotator=label_annotator,
             distance_estimater=distance_estimater
         )
-        # Increment frame counter
-        frame_count += 1
-
-        # Calculate FPS (frames per second)
-        frame_time = time.time() - start_time
-        fps = 1 / frame_time if frame_time > 0 else 0  # Avoid division by zero
-
-        # Create rich text to display in the live view
-        live_text = Text(f"Frame: {frame_count}, FPS: {fps:.2f}, CPU: {psutil.cpu_percent()}%", style="bold green")
-
-        # Update the live view with the latest frame info
-        live.update(live_text)
-
-        if parameters.displayFrame:
-            if not display_frame(annotated_labeled_frame):
-                break
         
-    live.stop()
 
+        if not displayer.display_frame(annotated_labeled_frame):
+            break
+        
+        
+
+        
+        
+    displayer.stop_displaying()
     # Signal the inference thread to stop and wait for it to finish
     input_queue.put(None)
     inference_thread.join()
@@ -339,8 +367,9 @@ def setParameters():
     parameters = Parameters()
     parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
     parameters.set_input_video(input_video_path=Parameters.DEFAULT_VIDEO_PATHS[1])
+    parameters.set_displaying()
     return parameters
-
+    
 
 if __name__ == "__main__":
     parameters = setParameters()

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import supervision as sv
 
 class DistanceEstimater:
-    HEIGHTS = {2: 1.5, 5: 3, 7:2}
+    ID_TO_HEIGHTS = {2: 1.5, 5: 3, 7:2} # pairs up class_id:s to vehicles height.
 
     def __init__(self, parameters, class_names:list):
         '''A class to encapsule the distance estimation process
@@ -24,6 +24,7 @@ class DistanceEstimater:
      
     def add_detection(self, detections: sv.Detections):
         '''Adds the detections to the data dictionary, which is a dictionary keeping track of the distances to each car.'''
+        pass
         for i,tracker_id in enumerate(detections.tracker_id):
             # Gets the distance corresponding the tracker_id
             distance = self._get_distance(detections.xyxy[i], detections.class_id[i])
@@ -39,7 +40,7 @@ class DistanceEstimater:
     def _get_distance(self, xyxy, class_id):
         '''Gets the distance from a xyxy box'''
         h_pixels = xyxy[3]-xyxy[1]
-        real_height = self.HEIGHTS[class_id]
+        real_height = self.ID_TO_HEIGHTS[class_id]
         # The distance estimation itself
         Distance = real_height*self.FOCAL_LENGTH/h_pixels
         return Distance
