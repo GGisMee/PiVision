@@ -16,7 +16,7 @@ from rich.console import Console
 from rich.live import Live
 from rich.text import Text
 import psutil
-
+from collections import deque
 
 from calculate import DistanceEstimater
 
@@ -44,6 +44,8 @@ class Parameters:
         self.displayFrame = True
         self.hef_path = 'model/yolo10n.hef'
         self.labels_path = "detection_with_tracker/coco.txt"
+        
+        self.save_frame_debug = False
 
     def _test_existance(self,paths:list[str]):
         '''Tests paths if they exist'''
@@ -78,8 +80,9 @@ class Parameters:
         self.create_output_video = True
         self.output_video_path:str= output_video_path
 
-    def set_displaying(self, displayFrame:bool = False):
+    def set_displaying(self, displayFrame:bool = False, save_frame_debug: bool = False):
         self.displayFrame = displayFrame
+        self.save_frame_debug = save_frame_debug
 
 class FrameGrabber:
     '''A class to handle the frame creation process'''
@@ -130,12 +133,15 @@ class Displayer:
         self.displayFrame: bool = parameters.displayFrame
         self.frame_count: int = 0
         self.setup_rich_debug()
+        self.save_frame_debug: bool = parameters.save_frame_debug
 
     def display_frame(self,frame):
         """
         Display the frame in a window using OpenCV.
         Press 'q' to exit the display window.
         """
+        if self.save_frame_debug:
+            self.save_img(frame)
         if not self.displayFrame:
             return True
 
@@ -146,9 +152,14 @@ class Displayer:
             return False  # Signal to stop the program
         return True
     
+    def update_detection_procentage(self, detections:bool):
+        self.detection_procentage.append(detections)
+
     def setup_rich_debug(self):
         # rich debug info:
         self.console = Console()
+        self.cap = 20
+        self.detection_procentage = deque([False]*self.cap, maxlen=self.cap)
         self.live = Live(console=self.console, auto_refresh=True)
         self.live.start()
 
@@ -164,13 +175,17 @@ class Displayer:
         fps = 1 / frame_time if frame_time > 0 else 0  # Avoid division by zero
 
         # Create rich text to display in the live view
-        live_text = Text(f"Frame: {self.frame_count}, FPS: {fps:.2f}, CPU: {psutil.cpu_percent()}%", style="bold green")
+        live_text = Text(f"Frame: {self.frame_count}, FPS: {fps:.2f}, CPU: {psutil.cpu_percent()}%, Procentage {round(sum(self.detection_procentage)/self.cap*100)}%", style="bold green")
 
         # Update the live view with the latest frame info
         self.live.update(live_text)
 
     def stop_displaying(self):
         self.live.stop()
+
+    def save_img(self,frame:np.ndarray):
+        cv2.imwrite(filename='output/showed_img.png', img=frame)
+
 
 def preprocess_frame(
     frame: np.ndarray, model_h: int, model_w: int, video_h: int, video_w: int
@@ -333,6 +348,8 @@ def main(parameters:Parameters) -> None:
             results, frame_h, frame_w, parameters.score_threshold
         )
 
+
+        displayer.update_detection_procentage(bool(len(detections['class_id'])))
         displayer.display_text()
 
 
@@ -367,7 +384,7 @@ def setParameters():
     parameters = Parameters()
     parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
     parameters.set_input_video(input_video_path=Parameters.DEFAULT_VIDEO_PATHS[1])
-    parameters.set_displaying()
+    parameters.set_displaying(save_frame_debug=True)
     return parameters
     
 
