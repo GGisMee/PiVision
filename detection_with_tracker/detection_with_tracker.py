@@ -34,7 +34,7 @@ class Parameters:
         setBools
     '''
 
-    DEFAULT_VIDEO_PATHS = ['resources/videos/detection0.mp4', 'resources/videos/close616.mov']
+    DEFAULT_VIDEO_PATHS = ['resources/videos/detection0.mp4', 'resources/videos/close616.mov', 'resources/videos/kaggle_bundle/00067cfb-e535423e.mov']
 
     def __init__(self):
         # Default values if not changes
@@ -125,13 +125,26 @@ class FrameGrabber:
             frame = next(self.frame_generator)
         return frame
      
+class FrameNumberHandler:
+    def __init__(self):
+        self.current_frame = 0
+        self.fps = None
+        self.start_time = None
+    def update_frame(self):
+        self.current_frame += 1
+        if not self.start_time:
+            self.start_time = time.time()
+    def update_fps(self):
+        new_time = time.time()-self.start_time
+        self.fps = 1 / new_time if new_time > 0 else 0
+        self.start_time = time.time()
+        
 
 class Displayer:
     '''A class to handle what is displayed both with cv2 tools and terminal'''
     def __init__(self, parameters: Parameters):
         self.use_rpi: bool = parameters.use_rpi
         self.displayFrame: bool = parameters.displayFrame
-        self.frame_count: int = 0
         self.setup_rich_debug()
         self.save_frame_debug: bool = parameters.save_frame_debug
 
@@ -163,19 +176,13 @@ class Displayer:
         self.live = Live(console=self.console, auto_refresh=True)
         self.live.start()
 
-    def start_timer(self):
-        self.start_time = time.time()
-    def display_text(self):
+    def display_text(self, frame_number_handler: FrameNumberHandler):
 
-        # Increment frame counter
-        self.frame_count += 1
-
-        # Calculate FPS (frames per second)
-        frame_time = time.time() - self.start_time
-        fps = 1 / frame_time if frame_time > 0 else 0  # Avoid division by zero
+        frame_count = frame_number_handler.current_frame
+        fps = frame_number_handler.fps
 
         # Create rich text to display in the live view
-        live_text = Text(f"Frame: {self.frame_count}, FPS: {fps:.2f}, CPU: {psutil.cpu_percent()}%, Procentage {round(sum(self.detection_procentage)/self.cap*100)}%", style="bold green")
+        live_text = Text(f"Frame: {frame_count}, FPS: {fps:.2f}, CPU: {psutil.cpu_percent()}%, Procentage {round(sum(self.detection_procentage)/self.cap*100)}%", style="bold green")
 
         # Update the live view with the latest frame info
         self.live.update(live_text)
@@ -185,6 +192,7 @@ class Displayer:
 
     def save_img(self,frame:np.ndarray):
         cv2.imwrite(filename='output/showed_img.png', img=frame)
+
 
 
 def preprocess_frame(
@@ -240,7 +248,7 @@ def postprocess_detections(
     tracker: sv.ByteTrack,
     box_annotator: sv.RoundBoxAnnotator,
     label_annotator: sv.LabelAnnotator,
-    distance_estimater: DistanceEstimater
+    distance_estimater: DistanceEstimater,
 
 ) -> np.ndarray:
     """Postprocess the detections by annotating the frame with bounding boxes and labels."""
@@ -307,23 +315,19 @@ def main(parameters:Parameters) -> None:
     inference_thread: threading.Thread = threading.Thread(target=hailo_inference.run)
     inference_thread.start()
 
-    # setup custom classes
+    #* setup custom classes
     # start the framegrabber:
     framegrabber = FrameGrabber(parameters)
     frame_w, frame_h = framegrabber.get_wh_set_generator()
 
-    # setup the distance estimater
     distance_estimater = DistanceEstimater(parameters, class_names)
-
-    # setup the displayer
     displayer = Displayer(parameters)
-
-
-    
+    frame_number_handler = FrameNumberHandler()
 
     # Initialize video sink for output
     while framegrabber.running == True:
-        displayer.start_timer()
+        frame_number_handler.update_frame()
+        # displayer.start_timer()
         frame=framegrabber.get_frame()
         if isinstance(frame, bool):
             break
@@ -350,7 +354,8 @@ def main(parameters:Parameters) -> None:
 
 
         displayer.update_detection_procentage(bool(len(detections['class_id'])))
-        displayer.display_text()
+        frame_number_handler.update_fps()
+        displayer.display_text(frame_number_handler=frame_number_handler)
 
 
         if len(detections['class_id']) == 0:
@@ -364,10 +369,9 @@ def main(parameters:Parameters) -> None:
             tracker=tracker, 
             box_annotator=box_annotator, 
             label_annotator=label_annotator,
-            distance_estimater=distance_estimater
+            distance_estimater=distance_estimater,
         )
         
-
         if not displayer.display_frame(annotated_labeled_frame):
             break
         
@@ -384,7 +388,7 @@ def setParameters():
     parameters = Parameters()
     parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
     parameters.set_input_video(input_video_path=Parameters.DEFAULT_VIDEO_PATHS[1])
-    parameters.set_displaying(save_frame_debug=True)
+    parameters.set_displaying(displayFrame=False,save_frame_debug=False)
     return parameters
     
 

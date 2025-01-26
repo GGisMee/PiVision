@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import supervision as sv
+from collections import deque
+import time
 
 class DistanceEstimater:
     ID_TO_HEIGHTS = {2: 1.5, 5: 3, 7:2} # pairs up class_id:s to vehicles height.
@@ -13,7 +15,7 @@ class DistanceEstimater:
             class_names: list = names for the different classes.
 
         Created args:
-            self.data: dict = tracker_id : [distance1, distance2...]
+            self.data: dict = tracker_id : {'s':[distance1, distance2...], 't':[time1,time2,...]}
             self.data_corresponding_class: dict = tracker_id : class_id'''
         self.data: dict = {}
         self.data_corresponding_class: dict = {}
@@ -21,21 +23,33 @@ class DistanceEstimater:
         self.class_names = class_names
 
         self.FOCAL_LENGTH = 248
-     
+        self.cap = 20
+        self.start_time = None
     def add_detection(self, detections: sv.Detections):
-        '''Adds the detections to the data dictionary, which is a dictionary keeping track of the distances to each car.'''
+        '''Adds the detections to the data dictionary, which is a dictionary keeping track of the distances and the time to each car.'''
+        if not self.start_time:
+            self.start_time = time.time()
         pass
         for i,tracker_id in enumerate(detections.tracker_id):
             # Gets the distance corresponding the tracker_id
             distance = self._get_distance(detections.xyxy[i], detections.class_id[i])
-
             # create key_value pair if it doesn't exist, otherwise append
             if tracker_id not in self.data.keys():
-                self.data[tracker_id] = [distance]
+                # create the specific data holders for the tracker_id
+                # I use a deque here to limit the amount of variables in the list. 
+                # This makes sure that the num calculations stay low and only relative data is used
+                distance_deque = deque(maxlen=self.cap)
+                time_deque = deque(maxlen=self.cap)
+                distance_deque.append(distance)
+                time_deque.append(time.time()-self.start_time)
+
+
+                self.data[tracker_id] = {'s':distance_deque, 't':time_deque}
                 # adds the class of the tracker_id
                 self.data_corresponding_class[tracker_id] = detections.class_id[i]
             else:
-                self.data[tracker_id].append(distance)
+                self.data[tracker_id]['s'].append(distance)
+                self.data[tracker_id]['t'].append(time.time()-self.start_time)
 
     def _get_distance(self, xyxy, class_id):
         '''Gets the distance from a xyxy box'''
@@ -51,7 +65,7 @@ class DistanceEstimater:
             class_id = self.data_corresponding_class[tracker_id]
              
             # gets the latest distance associated with tracker_id. Latest, hence -1
-            distance = self.data[tracker_id][-1] 
+            distance = self.data[tracker_id]['s'][-1] 
 
             label = f"#{tracker_id}, {self.class_names[class_id]}, {distance:.2f}"
             labels.append(label)
