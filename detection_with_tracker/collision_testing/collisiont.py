@@ -14,52 +14,57 @@ t14 = deque([10.231421709060669, 10.278669595718384, 10.37704586982727, 10.42457
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Linjär modell
-def linear_model(time, distance):
-    coeffs = np.polyfit(time, distance, 1)  # Linjär regression (grad 1)
-    slope, intercept = coeffs
-    t_zero = -intercept / slope if slope != 0 else None
-    return t_zero, coeffs
+import numpy as np
+import matplotlib.pyplot as plt
 
-# Kvadratisk modell (för konstant acceleration)
-def quadratic_model(time, distance):
-    coeffs = np.polyfit(time, distance, 2)  # Kvadratisk regression (grad 2)
-    a, b, c = coeffs
-    discriminant = b**2 - 4 * a * c
-    t_zero = (-b + np.sqrt(discriminant)) / (2 * a) if discriminant >= 0 else None
-    return t_zero, coeffs
+def linear_model(t, m, c):
+    return m * t + c
 
-# Funktion för att plotta modeller
-def plot_models(time, distance):
-    plt.scatter(time, distance, color='black', label='Data (observationer)')
+def quadratic_model(t, a, b, c):
+    return a * t**2 + b * t + c
 
-    # Linjär modell
-    t_zero_linear, coeffs_linear = linear_model(time, distance)
-    linear_fit = np.polyval(coeffs_linear, time)
-    plt.plot(time, linear_fit, label='Linjär modell', linestyle='--')
+def calculate_intersection(coefficients):
+    roots = np.roots(coefficients)
+    roots = roots[np.isreal(roots)].real  # Bara verkliga l�sningar
+    return roots[roots >= 0]  # Endast positiva tidpunkter
+
+def plot_data_with_models(time, distance):
+    # Linj�r modell
+    coeff_linear = np.polyfit(time, distance, 1)
+    m, c = coeff_linear
+    linear_fit = np.poly1d(coeff_linear)
 
     # Kvadratisk modell
-    t_zero_quadratic, coeffs_quadratic = quadratic_model(time, distance)
-    fine_time = np.linspace(min(time), max(time) + 2, 200)  # För smidig kurva
-    quadratic_fit = np.polyval(coeffs_quadratic, fine_time)
-    plt.plot(fine_time, quadratic_fit, label='Kvadratisk modell', linestyle='-.')
+    coeff_quadratic = np.polyfit(time, distance, 2)
+    quadratic_fit = np.poly1d(coeff_quadratic)
 
-    # Märkning av tid när sträckan når 0
-    if t_zero_linear is not None and t_zero_linear > 0:
-        plt.axvline(t_zero_linear, color='blue', linestyle=':', label=f'Linjär t=0: {t_zero_linear:.2f}')
-    if t_zero_quadratic is not None and t_zero_quadratic > 0:
-        plt.axvline(t_zero_quadratic, color='green', linestyle=':', label=f'Kvadratisk t=0: {t_zero_quadratic:.2f}')
+    # Tidsintervall f�r plottning
+    t_fit = np.linspace(min(time), max(time) * 1.2, 500)
 
-    # Anpassningar för plotten
-    plt.xlabel('Tid')
-    plt.ylabel('Sträcka')
-    plt.title('Modellering av rörelse')
+    # Ber�kna tidpunkter f�r nollgenomg�ng
+    linear_zero = calculate_intersection([m, c])
+    quadratic_zero = calculate_intersection(coeff_quadratic)
+
+    # Rita data och modeller
+    plt.figure(figsize=(10, 6))
+    plt.scatter(time, distance, label="Data", color="black", zorder=5)
+    plt.plot(t_fit, linear_fit(t_fit), label="Linjär modell", color="blue")
+    plt.plot(t_fit, quadratic_fit(t_fit), label="Kvadratisk modell", color="red")
+
+    # Rita vertikala linjer vid skärning
+    for zero in linear_zero:
+        plt.axvline(zero, color="blue", linestyle="--", label="Linjärt noll")
+    for zero in quadratic_zero:
+        plt.axvline(zero, color="red", linestyle="--", label="Kvadratisk noll")
+
+    # Anpassa grafen
+    plt.axhline(0, color="black", linewidth=0.8, linestyle="--")
+    plt.xlabel("Tid (s)")
+    plt.ylabel("Sträcka (m)")
+    plt.title("Data och modeller för sträckan")
     plt.legend()
-    plt.grid()
+    plt.grid(True)
     plt.show()
 
-# Exempeldata
 
-
-# Använd plot-funktionen
-plot_models(t14, s14)
+plot_data_with_models(t14, s14)

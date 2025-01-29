@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import supervision as sv
 from collections import deque
 import time
+from fit_to_points import PolyFitting
 
 class DistanceEstimater:
     ID_TO_HEIGHTS = {2: 1.5, 5: 3, 7:2} # pairs up class_id:s to vehicles height.
@@ -25,11 +26,13 @@ class DistanceEstimater:
         self.FOCAL_LENGTH = 248
         self.cap = 20
         self.start_time = None
+
+        self.poly_fitter = PolyFitting(degree=1, weight_function_info={'min_weight': 0.1,'max_weight': 1,'scale_factor': 1,'decay_rate': 1,'mode': 'linear'})
     def add_detection(self, detections: sv.Detections):
         '''Adds the detections to the data dictionary, which is a dictionary keeping track of the distances and the time to each car.'''
         if not self.start_time:
             self.start_time = time.time()
-        pass
+
         for i,tracker_id in enumerate(detections.tracker_id):
             # Gets the distance corresponding the tracker_id
             distance = self._get_distance(detections.xyxy[i], detections.class_id[i])
@@ -70,6 +73,23 @@ class DistanceEstimater:
             label = f"#{tracker_id}, {self.class_names[class_id]}, {distance:.2f}"
             labels.append(label)
         return labels
+    
+    def check_time_until_crash(self):
+        self.time_dict = {}
+        for tracker_id in self.data.keys():
+            s = self.data[tracker_id]['s']
+            t = self.data[tracker_id]['t']
+            self.poly_fitter.update(s,t)
+            time = self.poly_fitter.get_intersection()
+            self.time_dict[tracker_id] = time
+    
+    def check_warning(self):
+        for tracker_id in self.time_dict.keys():
+            time = self.time_dict[tracker_id]
+            if time >
+        
+        
+
             
 
 
