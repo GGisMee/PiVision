@@ -86,7 +86,9 @@ class DistanceEstimater:
     def check_warning(self):
         for tracker_id in self.time_dict.keys():
             time = self.time_dict[tracker_id]
-            if time >
+            if time > 3:
+                return True
+        return False
         
         
 
