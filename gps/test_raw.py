@@ -1,10 +1,13 @@
 import serial
 import time
 PORT = "/dev/serial0"  # Ändra vid behov
-PORT1 = 'PORT = "/dev/ttyS0"'
+# PORT = '/dev/ttyS0'
 BAUDRATE = 9600
 
-# testa om data fås med:  minicom -b 9600 -o -D /dev/ttyS0
+# check availability: cat /dev/ttyAMA0 | grep GSV
+
+
+# lite sämre test:  cd /, minicom -b 9600 -o -D /dev/ttyAMA0
 
 # mer på: https://chatgpt.com/share/679a92b6-8c4c-8001-9a9c-157cef60513d
 
