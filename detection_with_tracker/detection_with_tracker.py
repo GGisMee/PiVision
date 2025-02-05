@@ -93,8 +93,10 @@ class FrameGrabber:
 
         if self.use_rpi:
             self.camera = Picamera2()
-
-            camera_config = self.camera.create_video_configuration(main={"size": (640, 640), 'format': 'RGB888'})
+            # Here we configure the camera to take in a size of 1920x1080. We also make sure that it is in RGB and that it is for video capture
+            # We use size of 1920x1080 because since it is a good fit between a large size and a less detailed one. It also matches the cameras aspect ratio meaning that nothing is cropped out of the picture.  
+            camera_config = self.camera.create_video_configuration(main={"size": (1920, 1080), 'format': 'RGB888'})
+            
             self.camera.configure(camera_config)
             self.camera.start()
 
@@ -104,7 +106,7 @@ class FrameGrabber:
     
     def get_wh_set_generator(self):
         if self.use_rpi:
-            video_w, video_h = 640, 640
+            video_w, video_h = 1920, 1080
         else:
             video_w, video_h = self.video_info.resolution_wh
         return video_w, video_h
@@ -115,7 +117,7 @@ class FrameGrabber:
         if self.use_rpi:
             frame = self.camera.capture_array()
 
-            #* Temporary code to stop capturing:
+            #! Temporary code to stop capturing:
             if self.index == 500:
                 return True
         else:
@@ -199,9 +201,29 @@ def preprocess_frame(
     frame: np.ndarray, model_h: int, model_w: int, video_h: int, video_w: int
 ) -> np.ndarray:
     """Preprocess the frame to match the model's input size."""
+
+    
+    # checks if the paddings fit.
     if model_h != video_h or model_w != video_w:
-        return cv2.resize(frame, (model_w, model_h))
-    return frame
+        target_w, target_h = model_w, model_h
+        input_w, input_h = video_w, video_h
+        scale = min(target_w / input_w, target_h / input_h)  # Keep aspect ratio
+        new_w, new_h = int(input_w * scale), int(input_h * scale)
+
+        resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
+        # Compute padding
+        pad_top = (target_h - new_h) // 2 # How much to add top
+        pad_bottom = target_h - new_h - pad_top # How much to add bottom
+        pad_left = (target_w - new_w) // 2 # How much to add left
+        pad_right = target_w - new_w - pad_left # How much to add to the right
+
+        # Adds padding
+        padded_image = cv2.copyMakeBorder(resized, pad_top, pad_bottom, pad_left, pad_right, 
+                                          cv2.BORDER_CONSTANT, value=(114, 114, 114))
+        return padded_image
+    return cv2.resize(frame, (model_w, model_h))
+    
 
 def extract_detections(
     hailo_output: List[np.ndarray], h: int, w: int, threshold: float = 0.5
@@ -297,7 +319,7 @@ def main(parameters:Parameters) -> None:
         input_queue=input_queue,
         output_queue=output_queue,
     )
-    model_h, model_w, _ = hailo_inference.get_input_shape()
+    model_h, model_w, _ = hailo_inference.get_input_shape() # 640x640 for hailo10n
 
     
     # Initialize components for video processing
@@ -320,7 +342,7 @@ def main(parameters:Parameters) -> None:
     framegrabber = FrameGrabber(parameters)
     frame_w, frame_h = framegrabber.get_wh_set_generator()
 
-    distance_estimater = DistanceEstimater(parameters, class_names)
+    distance_estimater = DistanceEstimater(parameters, class_names, (frame_w, frame_h))
     displayer = Displayer(parameters)
     frame_number_handler = FrameNumberHandler()
 
@@ -349,7 +371,7 @@ def main(parameters:Parameters) -> None:
 
         # Extract detections from the inference results
         detections: Dict[str, np.ndarray] = extract_detections(
-            results, frame_h, frame_w, parameters.score_threshold
+            results, model_h, model_w, parameters.score_threshold
         )
 
 
@@ -357,13 +379,12 @@ def main(parameters:Parameters) -> None:
         frame_number_handler.update_fps()
         displayer.display_text(frame_number_handler=frame_number_handler)
 
-
         if len(detections['class_id']) == 0:
             continue
 
         # Postprocess the detections and annotate the frame
         annotated_labeled_frame, _ = postprocess_detections(
-            frame=frame, 
+            frame=preprocessed_frame, 
             detections=detections, 
             class_names=class_names, 
             tracker=tracker, 
@@ -387,8 +408,8 @@ def main(parameters:Parameters) -> None:
 def setParameters():
     parameters = Parameters()
     parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
-    parameters.set_input_video(input_video_path=Parameters.DEFAULT_VIDEO_PATHS[0])
-    parameters.set_displaying(displayFrame=True,save_frame_debug=False)
+    parameters.set_input_video(input_video_path=Parameters.DEFAULT_VIDEO_PATHS[1])
+    parameters.set_displaying(displayFrame=False,save_frame_debug=True)
     return parameters
     
 

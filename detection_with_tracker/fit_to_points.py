@@ -40,8 +40,7 @@ class PolyFitting:
         self.t:deque[float] = None
         self.s:deque[float] = None
         self.degree = degree 
-
-        
+       
     def weight_function(self):
         # Defaults for the extra parameter
         min_weight = self.weight_function_info.get('min_weight', 0.1)
@@ -76,7 +75,6 @@ class PolyFitting:
         else:
             raise ValueError("Invalid mode. Choose between 'linear' and 'exponential'")
 
-
     def get_intersection(self) -> Union[float, None]:
         '''Returns when the intersection will happen in seconds'''
         if self.degree == 1:
@@ -94,16 +92,11 @@ class PolyFitting:
                 return None
             return higher_roots[0]-self.t[-1] # om det är flera så väljs den första närmaste.
         
-
-        
-
-
     def fit(self):
         '''Fits the plot to the points.'''
         # Here we use w=self.weight_function(), since it has already been specified, we just run it
         weights = self.weight_function()
         self.coeff = np.polyfit(self.t, self.s, self.degree, w=weights)
-
 
     def update(self, s:deque,t:deque):
         '''Updates the s (distance) and t (time) lists'''
@@ -131,14 +124,11 @@ class PolyFitting:
         if outputDir:
             plt.savefig(outputDir, dpi=300)
             plt.close()
-            print(f'Plot saved to {outputDir}')
-
-
-        
+            print(f'Plot saved to {outputDir}')        
 
 if __name__ == '__main__':
     'Example of how it might look'
-    poly_fitter = PolyFitting(degree=1,weight_function_info={'scale_factor': 30, 'mode':'exponential', 'min_weight':0.1, 'decay_rate':100,'max_weight':1})
+    poly_fitter = PolyFitting(degree=1,weight_function_info={'scale_factor': 30, 'mode':'exponential', 'min_weight':0.1, 'decay_rate':100, 'max_weight':1})
     s,t = Dataset.give_data(1)
     poly_fitter.update(s,t)
     path = 'output/fig__data_1_exp_decay_100'
