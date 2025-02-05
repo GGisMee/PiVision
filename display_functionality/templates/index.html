@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobil Dashboard</title>
+    <style>
+        body { 
+            font-family: 'Verdana', sans-serif; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+            background-color: #E7E7E7; 
+        }
+        .container { 
+            display: flex; 
+            width: 100vw; /* vw stands for viewport width*/
+            height: 100vh; /* vh stands for viewport height */
+            gap: 80px; /* Space between columns */
+            padding: 100px; /* Padding around the container */
+            box-sizing: border-box;
+        }
+        .column { 
+            display: flex; 
+            flex-direction: column; 
+            flex: 1; 
+            gap: 120px; /* Space between boxes in sidecolumn should be same as gap in container */
+        }
+        .middle { 
+            flex: 4; /* Adjusted flex value for middle column */
+            justify-content: center; 
+        }
+        .box { 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 6em; 
+            background-color: #252525; 
+            color: white; 
+            padding: 40px;  /* Same padding on all sides of the box */
+            border-radius: 80px; 
+            flex: 1; 
+        }
+        /* Adjust side column flex value */
+        .column:first-child, .column:last-child {
+            flex: 3; /* Increase flex value for side columns */
+        }
+
+        @media (max-width: 430px) {
+            .container { flex-direction: column; gap: 40px; padding: 40px; }
+            .box { font-size: 3em; padding: 30px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="column">
+            <div class="box">{{ data["avstånd"] }} m</div>
+            <div class="box">{{ data["väder"] }}</div>
+        </div>
+        <div class="column middle">
+            <div class="box">{{ data["extra"] }}</div>
+        </div>
+        <div class="column">
+            <div class="box">{{ data["antal_nu"] }}</div>
+            <div class="box">{{ data["antal_totalt"] }}</div>
+        </div>
+    </div>
+</body>
+</html>
