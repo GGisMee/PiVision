@@ -24,6 +24,7 @@ from calculate import DistanceEstimater
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils import HailoAsyncInference
 
+
 class Parameters:
     '''A container for the variables in the detection algoritm
     
@@ -141,7 +142,6 @@ class FrameNumberHandler:
         self.fps = 1 / new_time if new_time > 0 else 0
         self.start_time = time.time()
         
-
 class Displayer:
     '''A class to handle what is displayed both with cv2 tools and terminal'''
     def __init__(self, parameters: Parameters):
@@ -195,7 +195,94 @@ class Displayer:
     def save_img(self,frame:np.ndarray):
         cv2.imwrite(filename='output/showed_img.png', img=frame)
 
+class DataManager:
+    def __init__(self, parameters:Parameters):
+        self.parameters = parameters
 
+        self.input_queue: queue.Queue = queue.Queue()
+        self.output_queue: queue.Queue = queue.Queue()
+
+        # set up the hailo inference functionality
+        self.hailo_inference = HailoAsyncInference(
+            hef_path= self.parameters.hef_path,
+            input_queue=self.input_queue,
+            output_queue=self.output_queue,
+        )
+        self.model_h, self.model_w, _ = self.hailo_inference.get_input_shape() # 640x640 for hailo10n
+
+
+        # Initialize components for video processing
+        self.box_annotator = sv.RoundBoxAnnotator()
+        self.label_annotator = sv.LabelAnnotator()
+        self.tracker = sv.ByteTrack()
+        # start, end = sv.Point(x=0, y=1080), sv.Point(x=3840, y=1080)
+        # line_zone = sv.LineZone(start=start, end=end)
+
+        # Load class names from the labels file
+        with open(self.parameters.labels_path, "r", encoding="utf-8") as f:
+            self.class_names: List[str] = f.read().splitlines()
+
+        # Start the asynchronous inference in a separate thread
+        self.inference_thread: threading.Thread = threading.Thread(target=self.hailo_inference.run)
+        self.inference_thread.start()
+
+        #* setup custom classes
+        # start the framegrabber:
+        self.framegrabber = FrameGrabber(self.parameters)
+        self.frame_w, self.frame_h = self.framegrabber.get_wh_set_generator()
+
+        self.distance_estimater = DistanceEstimater(self.parameters, self.class_names, (self.frame_w, self.frame_h))
+        self.displayer = Displayer(self.parameters)
+        self.frame_number_handler = FrameNumberHandler()
+
+    def run(self):
+        self.frame_number_handler.update_frame()
+        # displayer.start_timer()
+        frame=self.framegrabber.get_frame()
+        if isinstance(frame, bool):
+            return 1 # If last frame is reached
+        # Preprocess the frame
+        preprocessed_frame: np.ndarray = preprocess_frame(
+            frame, self.model_h, self.model_w, self.frame_h, self.frame_w
+        )
+
+        # Put the frame into the input queue for inference
+        self.input_queue.put([preprocessed_frame])
+
+        # Get the inference result from the output queue
+        results: List[np.ndarray]
+        _, results = self.output_queue.get()
+
+        # Deals with the expanded results from hailort versions < 4.19.0
+        if len(results) == 1:
+            results = results[0]
+
+        # Extract detections from the inference results
+        detections: Dict[str, np.ndarray] = extract_detections(
+            results, self.model_h, self.model_w, parameters.score_threshold
+        )
+
+
+        self.displayer.update_detection_procentage(bool(len(detections['class_id'])))
+        self.frame_number_handler.update_fps()
+        self.displayer.display_text(frame_number_handler=self.frame_number_handler)
+
+        if len(detections['class_id']) == 0:
+            return 0
+
+        # Postprocess the detections and annotate the frame
+        annotated_labeled_frame, _ = postprocess_detections(
+            frame=preprocessed_frame, 
+            detections=detections, 
+            class_names=self.class_names, 
+            tracker=self.tracker, 
+            box_annotator=self.box_annotator, 
+            label_annotator=self.label_annotator,
+            distance_estimater=self.distance_estimater,
+        )
+        
+        if not self.displayer.display_frame(annotated_labeled_frame):
+            return 1 # if q is pressed in the displayer
 
 def preprocess_frame(
     frame: np.ndarray, model_h: int, model_w: int, video_h: int, video_w: int
@@ -211,7 +298,6 @@ def preprocess_frame(
         new_w, new_h = int(input_w * scale), int(input_h * scale)
 
         resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
-
         # Compute padding
         pad_top = (target_h - new_h) // 2 # How much to add top
         pad_bottom = target_h - new_h - pad_top # How much to add bottom
@@ -223,7 +309,6 @@ def preprocess_frame(
                                           cv2.BORDER_CONSTANT, value=(114, 114, 114))
         return padded_image
     return cv2.resize(frame, (model_w, model_h))
-    
 
 def extract_detections(
     hailo_output: List[np.ndarray], h: int, w: int, threshold: float = 0.5
@@ -303,8 +388,6 @@ def postprocess_detections(
     )
     
     return annotated_labeled_frame, sv_detections
-
-
 
 def main(parameters:Parameters) -> None:
     """Main function to run the video processing."""    
@@ -409,7 +492,8 @@ def setParameters():
     parameters.set_displaying(displayFrame=False,save_frame_debug=True)
     return parameters
     
-
 if __name__ == "__main__":
     parameters = setParameters()
+    data_manager = DataManager()
+    
     main(parameters)
