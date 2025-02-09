@@ -396,10 +396,7 @@ def main(parameters:Parameters) -> None:
         if not displayer.display_frame(annotated_labeled_frame):
             break
         
-        
-
-        
-        
+    
     displayer.stop_displaying()
     # Signal the inference thread to stop and wait for it to finish
     input_queue.put(None)
