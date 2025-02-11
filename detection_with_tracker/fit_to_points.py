@@ -1,7 +1,7 @@
 from collections import deque
 import numpy as np
 import matplotlib.pyplot as plt
-from test_open import open_image_in_vscode
+from detection_with_tracker.test_open import open_image_in_vscode
 from typing import Union
 
 # look into: https://chatgpt.com/share/67969aa3-53f8-8001-9db8-5b45fd5beef9
@@ -98,12 +98,15 @@ class PolyFitting:
         weights = self.weight_function()
         self.coeff = np.polyfit(self.t, self.s, self.degree, w=weights)
 
-    def update(self, s:deque,t:deque):
+    def update(self, d:deque, dx:deque, dy:deque, t:deque):
         '''Updates the s (distance) and t (time) lists'''
         self.t = t
-        self.s = s
+        self.d = d
+        self.dx = dx
+        self.dy = dy
 
-        # fits the new updated data to a funciton
+
+        # fits the new updated data to a function
         self.fit()
 
         return self.get_intersection()

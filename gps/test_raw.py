@@ -10,7 +10,10 @@ BAUDRATE = 9600
 # Test with minicom:
 # cd /; minicom -b 9600 -o -D /dev/ttyAMA0
 
+# cgps -s 
+
 # For more info, see: https://chatgpt.com/share/679a92b6-8c4c-8001-9a9c-157cef60513d
+
 
 def parse_nmea(data):
     """Function to parse NMEA data and extract useful information."""

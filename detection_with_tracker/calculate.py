@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import supervision as sv
 from collections import deque
 import time
-from fit_to_points import PolyFitting
+from detection_with_tracker.fit_to_points import PolyFitting
 
 class DistanceEstimater:
     ID_TO_HEIGHTS = {2: 1.5, 5: 3, 7:2} # pairs up class_id:s to vehicles height.
@@ -34,8 +34,6 @@ class DistanceEstimater:
         self.frame_width = 640 # pixels in the aspect ratio which was converted to.
         self.distance_pixels = self.frame_width/(2*np.sin(self.camera_angle)) # Calculates the hypotinuse with trigonometry. More in calc_camera_values
 
-
-
     def add_detection(self, detections: sv.Detections):
         '''Adds the detections to the data dictionary, which is a dictionary keeping track of the distances and the time to each car.'''
         if not self.start_time:
@@ -51,19 +49,22 @@ class DistanceEstimater:
                 # This makes sure that the num calculations stay low and only relative data is used
                 distance_deque = deque(maxlen=self.cap)
                 dx_deque = deque(maxlen=self.cap)
+                dy_deque = deque(maxlen=self.cap)
 
                 time_deque = deque(maxlen=self.cap)
                 distance_deque.append(d)
                 dx_deque.append(dx)
+                dy_deque.append(dy)
                 time_deque.append(time.time()-self.start_time)
 
 
-                self.data[tracker_id] = {'d':distance_deque, 'dx':dx_deque, 't':time_deque}
+                self.data[tracker_id] = {'d':distance_deque, 'dx':dx_deque, 'dy':dy_deque, 't':time_deque}
                 # adds the class of the tracker_id
                 self.data_corresponding_class[tracker_id] = detections.class_id[i]
             else:
                 self.data[tracker_id]['d'].append(d)
                 self.data[tracker_id]['dx'].append(dx)
+                self.data[tracker_id]['dy'].append(dx)
                 self.data[tracker_id]['t'].append(time.time()-self.start_time)
 
     def _get_distance(self, xyxy, class_id):
@@ -80,18 +81,12 @@ class DistanceEstimater:
 
         def get_composites(d:float):
             distance_from_center_x = (xyxy[0]+xyxy[2])/2- self.frame_width/2
+
             dx = d/self.distance_pixels*(distance_from_center_x) # for aspect ratio of 1920x1080
+
             dy = d*np.sqrt((1-distance_from_center_x**2)/(self.distance_pixels**2))
             return dx,dy
-
-
-            
-
-            pass
-
-            
-
-
+    
         d = get_real_world_distance()
         dx, dy = get_composites(d)
 
@@ -114,9 +109,11 @@ class DistanceEstimater:
     def check_time_until_crash(self):
         self.time_dict = {}
         for tracker_id in self.data.keys():
-            s = self.data[tracker_id]['d']
+            d = self.data[tracker_id]['d']
+            dx = self.data[tracker_id]['dx']
+            dy = self.data[tracker_id]['dy']
             t = self.data[tracker_id]['t']
-            self.poly_fitter.update(s,t)
+            self.poly_fitter.update(d,dx,dy,t)
             time = self.poly_fitter.get_intersection()
             self.time_dict[tracker_id] = time
     

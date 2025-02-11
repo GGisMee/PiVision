@@ -18,11 +18,11 @@ from rich.text import Text
 import psutil
 from collections import deque
 
-from calculate import DistanceEstimater
+from detection_with_tracker.calculate import DistanceEstimater
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils import HailoAsyncInference
+from detection_with_tracker.utils import HailoAsyncInference
 
 
 class Parameters:
@@ -236,6 +236,8 @@ class DataManager:
         self.frame_number_handler = FrameNumberHandler()
 
     def run(self):
+
+        #* Get frame
         self.frame_number_handler.update_frame()
         # displayer.start_timer()
         frame=self.framegrabber.get_frame()
@@ -246,6 +248,7 @@ class DataManager:
             frame, self.model_h, self.model_w, self.frame_h, self.frame_w
         )
 
+        #* hailo setup
         # Put the frame into the input queue for inference
         self.input_queue.put([preprocessed_frame])
 
@@ -257,16 +260,17 @@ class DataManager:
         if len(results) == 1:
             results = results[0]
 
-        # Extract detections from the inference results
+        #* Extract detections from the inference results
         detections: Dict[str, np.ndarray] = extract_detections(
-            results, self.model_h, self.model_w, parameters.score_threshold
+            results, self.model_h, self.model_w, self.parameters.score_threshold
         )
 
-
+        #* view detections
         self.displayer.update_detection_procentage(bool(len(detections['class_id'])))
         self.frame_number_handler.update_fps()
         self.displayer.display_text(frame_number_handler=self.frame_number_handler)
 
+        #* proess detections
         if len(detections['class_id']) == 0:
             return 0
 
@@ -494,6 +498,8 @@ def setParameters():
     
 if __name__ == "__main__":
     parameters = setParameters()
-    data_manager = DataManager()
+    data_manager = DataManager(parameters)
+    while True:
+        data_manager.run()
     
-    main(parameters)
+    #main(parameters)
