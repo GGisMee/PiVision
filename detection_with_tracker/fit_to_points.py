@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from detection_with_tracker.test_open import open_image_in_vscode
 from typing import Union
-
+import os
 # look into: https://chatgpt.com/share/67969aa3-53f8-8001-9db8-5b45fd5beef9
 
 # decay rate++: https://chatgpt.com/share/6799f45c-55f4-8001-be53-3d693aec06dc
@@ -23,8 +23,18 @@ class Dataset:
         t = [Dataset.t1,Dataset.t2,Dataset.t3][index]
         return s,t
 
+class UpdatedData:
+    data = {
+        1:{
+            'd':deque([3.4034437902633394, 3.3229657759383335, 3.339162906590546, 3.2115489019420047, 3.138862194590619, 3.11057370080868, 3.022579998160743, 2.9803361671988284, 2.9072821004504132, 2.8530010709553095, 2.8661374055601514, 2.7646215328110815, 2.6232178647528537, 2.5439719509141, 2.448369130075666, 2.4680238554930933, 2.393236415639552, 2.3036609349860293, 2.225563724451451, 2.413466887111379]),
+            'dx':deque([1.2932957464093058, 1.2657476072621678, 1.2797610447895202, 1.238120487609066, 1.214386751371361, 1.212618577734642, 1.1803501906087197, 1.1717530776763305, 1.1487080374711334, 1.1307812965134656, 1.1398395871648594, 1.12174461473418, 1.0908057759605592, 1.0613205487419495, 1.0393592046441034, 1.063313040195568, 1.0366161153142983, 1.0009978244747244, 0.975537303301667, 1.080061684764094]),
+
+            'dy':deque([3.1481448101702187, 3.0724557836960886, 3.0841888050165576, 2.9632927644307414, 2.894429251981114, 2.8644763802648856, 2.7825821232825017, 2.7403281545226386, 2.6707225719360266, 2.619341285576866, 2.6297356032656434, 2.5268203812296512, 2.3856686117500905, 2.312010376243104, 2.2168093830613964, 2.2272195962304773, 2.157083116297085, 2.074814945670475, 2.0003651820258033, 2.1583070152987123]),
+            't':deque([0.2986564636230469, 0.34808897972106934, 0.39760303497314453, 0.44808459281921387, 0.4978005886077881, 0.5476531982421875, 0.5971758365631104, 0.6476304531097412, 0.6997992992401123, 0.7505092620849609, 0.8001377582550049, 0.9195058345794678, 1.0869636535644531, 1.13749098777771, 1.288707971572876, 1.3891522884368896, 1.4396085739135742, 1.4900901317596436, 1.5402050018310547, 1.6912600994110107])
+        }
+    }
 class PolyFitting:        
-    def __init__(self, degree:int = 1, weight_function_info: dict[float, str] = {'min_weight':0.1, 'max_weight':1, 'scale_factor':1, 'decay_rate':1,'mode':'linear'}):
+    def __init__(self, degree:int = 1, weight_function_info: dict[float, str] = {'min_weight':0.1, 'max_weight':1, 'scale_factor':1, 'decay_rate':1,'mode':'linear'}, viewing=False, saving=False):
         '''Check for time untill crash. 
 
         args:
@@ -33,15 +43,18 @@ class PolyFitting:
                 max_weight / min_weight: float = You can control the range of weights by adjusting min_weight and max_weight.
                 scale_factor: float = You can scale the weights using the scale_factor.
                 mode: str = You can switch between 'linear' and 'exponential' weighting with the mode parameter.
+            viewing: bool = If one should view the results for each detection. 
+            saving: bool = if the view results should get saved
 
         '''
         self.weight_function_info:dict = weight_function_info
 
-        self.t:deque[float] = None
-        self.s:deque[float] = None
         self.degree = degree 
+
+        self.viewing = viewing
+        self.saving = saving
        
-    def weight_function(self):
+    def weight_function(self,t:deque):
         # Defaults for the extra parameter
         min_weight = self.weight_function_info.get('min_weight', 0.1)
         max_weight = self.weight_function_info.get('max_weight', 1.0)
@@ -49,17 +62,17 @@ class PolyFitting:
         mode = self.weight_function_info.get('mode', 'linear')  # 'linear' or 'exponential'
 
         # Ensure time is not empty
-        if len(self.t) == 0:
+        if len(t) == 0:
             return np.array([])
 
         # Linear weighting (no changes needed here)
         if mode == 'linear':
-            return np.linspace(min_weight, max_weight, len(self.t)) * scale_factor
+            return np.linspace(min_weight, max_weight, len(t)) * scale_factor
 
         # Exponential weighting (with time-based decay)
         elif mode == 'exponential':
             # Calculate the exponential decay based on time differences (relative to the last time point)
-            time_diff = np.array(self.t) - self.t[-1]  # Difference from the last time point
+            time_diff = np.array(t) - t[-1]  # Difference from the last time point
             decay_rate = self.weight_function_info.get('decay_rate', 0.1)  # Decay rate parameter
 
             # Apply exponential decay based on time difference
@@ -92,48 +105,71 @@ class PolyFitting:
                 return None
             return higher_roots[0]-self.t[-1] # om det är flera så väljs den första närmaste.
         
-    def fit(self):
+    def fit(self, d:deque, t:deque):
         '''Fits the plot to the points.'''
         # Here we use w=self.weight_function(), since it has already been specified, we just run it
-        weights = self.weight_function()
-        self.coeff = np.polyfit(self.t, self.s, self.degree, w=weights)
+        weights = self.weight_function(t)
+        coeff = np.polyfit(t, d, self.degree, w=weights)
+        return coeff
 
-    def update(self, d:deque, dx:deque, dy:deque, t:deque):
+    def update(self, data_for_car:dict, t_boundries: list[float] = [0.1,5]):
         '''Updates the s (distance) and t (time) lists'''
-        self.t = t
-        self.d = d
-        self.dx = dx
-        self.dy = dy
+        
+        
 
+        t = data_for_car['t']
+        # d = data_for_car['d']
+        dx = data_for_car['dx']
+        dy = data_for_car['dy']
 
         # fits the new updated data to a function
-        self.fit()
+        side_coeff = self.fit(dx,t)
+        forward_coeff = self.fit(dy,t)
 
-        return self.get_intersection()
+        # adds time from last datapoint
+        t_boundries = [max(t)+t_boundries[0], max(t)+t_boundries[5]]
 
-    def view(self, extra_show: float = 5,outputDir: str = None):
-        plt.scatter(self.t, self.s, color='red', label='Data')
-        t_fit = np.linspace(min(self.t), max(self.t)+extra_show, 1000)  # Generera x-värden för en jämn kurva
-        s_fit = np.polyval(self.coeff, t_fit)
+        coming_time:np.ndarray = np.linspace(t_boundries[0], t_boundries[1], num = 10)
+        coming_distance_x:np.ndarray[float] = np.polyval(side_coeff, coming_time)
+        coming_distance_y:np.ndarray[float] = np.polyval(forward_coeff, coming_time)
 
-        plt.plot(t_fit, s_fit, color='blue', label='Ploted line')
+        
+
+        self.view(dy=dy, 
+                  dx=dx, 
+                  t=t, 
+                  coming_t=coming_time, 
+                  coming_d_x=coming_distance_x, 
+                  coming_d_y=coming_distance_y)
+        return coming_distance_x, coming_distance_y, coming_time
+
+        # return self.get_intersection()
+
+    def view(self, dy:np.ndarray,dx:np.ndarray,t:np.ndarray, coming_t:np.ndarray, coming_d_x:np.ndarray, coming_d_y:np.ndarray):
+        if not self.viewing and not self.saving:
+            return
+        plt.scatter(t, dx, color='red', label='X')
+        plt.scatter(t, dy, color='blue', label='Y')
+        plt.plot(coming_t, coming_d_x, color='red', label='coming X')
+        plt.plot(coming_t, coming_d_y, color='blue', label='coming Y')
         plt.legend()
         plt.grid()
         plt.xlabel('t')
         plt.ylabel('s')
         plt.grid()
-        if not outputDir:
+        if self.viewing:
             plt.show()
-        if outputDir:
-            plt.savefig(outputDir, dpi=300)
+        if self.saving:
+            if not os.path.exists('output'):
+                return
+            plt.savefig('output/distance', dpi=300)
             plt.close()
-            print(f'Plot saved to {outputDir}')        
+            print(f'Plot saved to output/distance')        
 
 if __name__ == '__main__':
     'Example of how it might look'
-    poly_fitter = PolyFitting(degree=1,weight_function_info={'scale_factor': 30, 'mode':'exponential', 'min_weight':0.1, 'decay_rate':100, 'max_weight':1})
-    s,t = Dataset.give_data(1)
-    poly_fitter.update(s,t)
-    path = 'output/fig__data_1_exp_decay_100'
-    poly_fitter.view(outputDir=path, extra_show=2)
-    open_image_in_vscode(path+'.png')
+    poly_fitter = PolyFitting(degree=1,weight_function_info={'scale_factor': 30, 'mode':'exponential', 'min_weight':0.1, 'decay_rate':100, 'max_weight':1},saving = True, viewing=False)
+    #s,t = Dataset.give_data(1)
+    data = UpdatedData.data
+    poly_fitter.update(data[1])
+    open_image_in_vscode('output/distance.png')

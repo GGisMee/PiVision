@@ -47,6 +47,7 @@ class Parameters:
         self.labels_path = "detection_with_tracker/coco.txt"
         
         self.save_frame_debug = False
+        self.max_fps = None
 
     def _test_existance(self,paths:list[str]):
         '''Tests paths if they exist'''
@@ -65,6 +66,9 @@ class Parameters:
 
         self.hef_path = hef_path
         self.labels_path = labels_path
+
+    def set_max_fps(self, max_fps:int=10):
+        self.max_fps = max_fps
 
     def set_model_info(self, score_threshold:float = 0.5):
         '''Sets the parameters for the model, that is how the model should act'''
@@ -129,10 +133,11 @@ class FrameGrabber:
         return frame
      
 class FrameNumberHandler:
-    def __init__(self):
+    def __init__(self, max_fps: int = None):
         self.current_frame = 0
         self.fps = None
         self.start_time = None
+        self.max_fps = max_fps
     def update_frame(self):
         self.current_frame += 1
         if not self.start_time:
@@ -140,6 +145,10 @@ class FrameNumberHandler:
     def update_fps(self):
         new_time = time.time()-self.start_time
         self.fps = 1 / new_time if new_time > 0 else 0
+        if self.fps>self.max_fps:
+            time.sleep(1/self.max_fps-1/self.fps)
+            new_time = time.time()-self.start_time
+            self.fps = 1 / new_time if new_time > 0 else 0
         self.start_time = time.time()
         
 class Displayer:
@@ -233,10 +242,10 @@ class DataManager:
 
         self.distance_estimater = DistanceEstimater(self.parameters, self.class_names, (self.frame_w, self.frame_h))
         self.displayer = Displayer(self.parameters)
-        self.frame_number_handler = FrameNumberHandler()
+        self.frame_number_handler = FrameNumberHandler(self.parameters.max_fps)
 
     def run(self):
-
+        '''Runs through a loop taking the frame, running it through the ai, getting the detections, tracking them, updating distance and checking for danger'''
         #* Get frame
         self.frame_number_handler.update_frame()
         # displayer.start_timer()
@@ -369,18 +378,13 @@ def postprocess_detections(
         class_id=detections["class_id"],
     )
 
-    # Update detections with tracking information
+    #* Update detections with tracking information
     sv_detections = tracker.update_with_detections(sv_detections)
 
     distance_estimater.add_detection(sv_detections)
     
+    # gets labels for displaying
     labels: List[str] = distance_estimater.get_display_labels(sv_detections)
-
-    # Generate tracked labels for annotated objects
-    #labels: List[str] = [
-    #     f"#{tracker_id} {class_names[class_id]}"
-    #    for class_id, tracker_id in zip(sv_detections.class_id, sv_detections.tracker_id)
-    # ]
 
     # Annotate objects with bounding boxes
     annotated_frame: np.ndarray = box_annotator.annotate(
@@ -393,107 +397,12 @@ def postprocess_detections(
     
     return annotated_labeled_frame, sv_detections
 
-def main(parameters:Parameters) -> None:
-    """Main function to run the video processing."""    
-    
-
-    input_queue: queue.Queue = queue.Queue()
-    output_queue: queue.Queue = queue.Queue()
-
-    # set up the hailo inference functionality
-    hailo_inference = HailoAsyncInference(
-        hef_path=parameters.hef_path,
-        input_queue=input_queue,
-        output_queue=output_queue,
-    )
-    model_h, model_w, _ = hailo_inference.get_input_shape() # 640x640 for hailo10n
-
-    
-    # Initialize components for video processing
-    box_annotator = sv.RoundBoxAnnotator()
-    label_annotator = sv.LabelAnnotator()
-    tracker = sv.ByteTrack()
-    start, end = sv.Point(x=0, y=1080), sv.Point(x=3840, y=1080)
-    line_zone = sv.LineZone(start=start, end=end)
-
-    # Load class names from the labels file
-    with open(parameters.labels_path, "r", encoding="utf-8") as f:
-        class_names: List[str] = f.read().splitlines()
-
-    # Start the asynchronous inference in a separate thread
-    inference_thread: threading.Thread = threading.Thread(target=hailo_inference.run)
-    inference_thread.start()
-
-    #* setup custom classes
-    # start the framegrabber:
-    framegrabber = FrameGrabber(parameters)
-    frame_w, frame_h = framegrabber.get_wh_set_generator()
-
-    distance_estimater = DistanceEstimater(parameters, class_names, (frame_w, frame_h))
-    displayer = Displayer(parameters)
-    frame_number_handler = FrameNumberHandler()
-
-    # Initialize video sink for output
-    while framegrabber.running == True:
-        frame_number_handler.update_frame()
-        # displayer.start_timer()
-        frame=framegrabber.get_frame()
-        if isinstance(frame, bool):
-            break
-        # Preprocess the frame
-        preprocessed_frame: np.ndarray = preprocess_frame(
-            frame, model_h, model_w, frame_h, frame_w
-        )
-
-        # Put the frame into the input queue for inference
-        input_queue.put([preprocessed_frame])
-
-        # Get the inference result from the output queue
-        results: List[np.ndarray]
-        _, results = output_queue.get()
-
-        # Deals with the expanded results from hailort versions < 4.19.0
-        if len(results) == 1:
-            results = results[0]
-
-        # Extract detections from the inference results
-        detections: Dict[str, np.ndarray] = extract_detections(
-            results, model_h, model_w, parameters.score_threshold
-        )
-
-
-        displayer.update_detection_procentage(bool(len(detections['class_id'])))
-        frame_number_handler.update_fps()
-        displayer.display_text(frame_number_handler=frame_number_handler)
-
-        if len(detections['class_id']) == 0:
-            continue
-
-        # Postprocess the detections and annotate the frame
-        annotated_labeled_frame, _ = postprocess_detections(
-            frame=preprocessed_frame, 
-            detections=detections, 
-            class_names=class_names, 
-            tracker=tracker, 
-            box_annotator=box_annotator, 
-            label_annotator=label_annotator,
-            distance_estimater=distance_estimater,
-        )
-        
-        if not displayer.display_frame(annotated_labeled_frame):
-            break
-        
-    
-    displayer.stop_displaying()
-    # Signal the inference thread to stop and wait for it to finish
-    input_queue.put(None)
-    inference_thread.join()
-
 def setParameters():
     parameters = Parameters()
     parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
     parameters.set_input_video(input_video_path=Parameters.DEFAULT_VIDEO_PATHS[1])
     parameters.set_displaying(displayFrame=False,save_frame_debug=True)
+    parameters.set_max_fps()
     return parameters
     
 if __name__ == "__main__":
@@ -502,4 +411,3 @@ if __name__ == "__main__":
     while True:
         data_manager.run()
     
-    #main(parameters)
