@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Example module for Hailo Detection + ByteTrack + Supervision."""
 
 import supervision as sv
@@ -22,7 +21,7 @@ from detection_with_tracker.calculate import DistanceEstimater
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from detection_with_tracker.utils import HailoAsyncInference
+from utils.hailo_utils import HailoAsyncInference
 
 
 class Parameters:
@@ -32,7 +31,8 @@ class Parameters:
         set_model_paths
         set_model_info
         set_input_video
-        setBools
+        set_max_fps
+        set_displaying
     '''
 
     DEFAULT_VIDEO_PATHS = ['resources/videos/detection0.mp4', 'resources/videos/close616.mov', 'resources/videos/kaggle_bundle/00067cfb-e535423e.mov']
@@ -48,6 +48,7 @@ class Parameters:
         
         self.save_frame_debug = False
         self.max_fps = None
+
 
     def _test_existance(self,paths:list[str]):
         '''Tests paths if they exist'''
@@ -74,20 +75,25 @@ class Parameters:
         '''Sets the parameters for the model, that is how the model should act'''
         self.score_threshold = score_threshold
 
-    def set_input_video(self, input_video_path:str):
-        '''If the raspberry pi shouldn't be used'''
+    def set_input_video(self, input_video_path:str, focal_length:int = 35):
+        '''If the raspberry pi shouldn't be used and the input should come from a video instead'''
         self.use_rpi = False
         self._test_existance([input_video_path])
         self.input_video_path = input_video_path
 
     def create_output(self, output_video_path:str):
+        '''If a output video should be saved'''
         self._test_existance([output_video_path])
         self.create_output_video = True
         self.output_video_path:str= output_video_path
 
-    def set_displaying(self, displayFrame:bool = False, save_frame_debug: bool = False):
+    def set_displaying(self, displayFrame:bool = False, save_frame_debug: bool = False, display_coming_distance:bool = False, save_coming_distance:bool=False):
+        '''Used to give an annotated frame of the cars with their boundry boxes and other info
+        WARNING: displaying and especially saving is really time consuming'''
         self.displayFrame = displayFrame
         self.save_frame_debug = save_frame_debug
+        self.save_coming_distance = save_coming_distance
+        self.display_coming_distance = display_coming_distance
 
 class FrameGrabber:
     '''A class to handle the frame creation process'''
@@ -244,7 +250,7 @@ class DataManager:
         self.displayer = Displayer(self.parameters)
         self.frame_number_handler = FrameNumberHandler(self.parameters.max_fps)
 
-    def run(self):
+    def run_process(self):
         '''Runs through a loop taking the frame, running it through the ai, getting the detections, tracking them, updating distance and checking for danger'''
         #* Get frame
         self.frame_number_handler.update_frame()
@@ -252,10 +258,9 @@ class DataManager:
         frame=self.framegrabber.get_frame()
         if isinstance(frame, bool):
             return 1 # If last frame is reached
+        
         # Preprocess the frame
-        preprocessed_frame: np.ndarray = preprocess_frame(
-            frame, self.model_h, self.model_w, self.frame_h, self.frame_w
-        )
+        preprocessed_frame: np.ndarray = self._preprocess_frame(frame)
 
         #* hailo setup
         # Put the frame into the input queue for inference
@@ -270,7 +275,7 @@ class DataManager:
             results = results[0]
 
         #* Extract detections from the inference results
-        detections: Dict[str, np.ndarray] = extract_detections(
+        detections: Dict[str, np.ndarray] = self._extract_detections(
             results, self.model_h, self.model_w, self.parameters.score_threshold
         )
 
@@ -279,129 +284,135 @@ class DataManager:
         self.frame_number_handler.update_fps()
         self.displayer.display_text(frame_number_handler=self.frame_number_handler)
 
-        #* proess detections
+        #* process detections
         if len(detections['class_id']) == 0:
-            return 0
+            return False
 
-        # Postprocess the detections and annotate the frame
-        annotated_labeled_frame, _ = postprocess_detections(
-            frame=preprocessed_frame, 
-            detections=detections, 
-            class_names=self.class_names, 
-            tracker=self.tracker, 
-            box_annotator=self.box_annotator, 
-            label_annotator=self.label_annotator,
-            distance_estimater=self.distance_estimater,
-        )
+
+        #* Postprocess the detections 
+        sv_detections = self._process_detections(detections=detections)
+
+        # if (self.frame_number_handler.current_frame % 50) == 0:
+        #     timetester.print_execution_times()
+
+        # if displaying is done in any way
+        if self.parameters.displayFrame or self.parameters.save_frame_debug:
+            #* Annotate the features such as bounding boxes and distance in title to frame
+            annotated_labeled_frame = self._annotate_frame(frame=frame,sv_detections=sv_detections)
         
-        if not self.displayer.display_frame(annotated_labeled_frame):
-            return 1 # if q is pressed in the displayer
-
-def preprocess_frame(
-    frame: np.ndarray, model_h: int, model_w: int, video_h: int, video_w: int
-) -> np.ndarray:
-    """Preprocess the frame to match the model's input size."""
-
+            #* Displays the frame
+            if not self.displayer.display_frame(annotated_labeled_frame):
+                return 1 # if q is pressed in the displayer
     
-    # checks if the paddings fit.
-    if model_h != video_h or model_w != video_w:
-        target_w, target_h = model_w, model_h
-        input_w, input_h = video_w, video_h
-        scale = min(target_w / input_w, target_h / input_h)  # Keep aspect ratio
-        new_w, new_h = int(input_w * scale), int(input_h * scale)
+    def _preprocess_frame(self, frame: np.ndarray) -> np.ndarray:
+        """Preprocess the frame to match the model's input size."""
 
-        resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
-        # Compute padding
-        pad_top = (target_h - new_h) // 2 # How much to add top
-        pad_bottom = target_h - new_h - pad_top # How much to add bottom
-        pad_left = (target_w - new_w) // 2 # How much to add left
-        pad_right = target_w - new_w - pad_left # How much to add to the right
+        # checks if already right size.
+        if self.model_h != self.frame_h or self.model_w != self.frame_w:
+            target_w, target_h = self.model_w, self.model_h
+            input_w, input_h = self.frame_w, self.frame_h
 
-        # Adds padding
-        padded_image = cv2.copyMakeBorder(resized, pad_top, pad_bottom, pad_left, pad_right, 
-                                          cv2.BORDER_CONSTANT, value=(114, 114, 114))
-        return padded_image
-    return cv2.resize(frame, (model_w, model_h))
+            # Takes min and applies to both to keep aspect ratio
+            scale = min(target_w / input_w, target_h / input_h)  
+            new_w, new_h = int(input_w * scale), int(input_h * scale)
 
-def extract_detections(
-    hailo_output: List[np.ndarray], h: int, w: int, threshold: float = 0.5
-) -> Dict[str, np.ndarray]:
-    """Extract detections from the HailoRT-postprocess output."""
-    xyxy: List[np.ndarray] = []
-    confidence: List[float] = []
-    class_id: List[int] = []
-    num_detections: int = 0
+            # resizes to new size.
+            resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
 
-    for i, detections in enumerate(hailo_output):
-        if len(detections) == 0:
-            continue
-        for detection in detections:
-            bbox, score = detection[:4], detection[4]
+            # Computes padding
+            pad_top = (target_h - new_h) // 2 # How much to add top
+            pad_bottom = target_h - new_h - pad_top # How much to add bottom
+            pad_left = (target_w - new_w) // 2 # How much to add left
+            pad_right = target_w - new_w - pad_left # How much to add to the right
 
-            if score < threshold:
+            # Adds padding
+            padded_image = cv2.copyMakeBorder(resized, pad_top, pad_bottom, pad_left, pad_right, 
+                                              cv2.BORDER_CONSTANT, value=(114, 114, 114))
+            # returns
+            return padded_image
+        return frame
+
+    def _extract_detections(
+        self, hailo_output: List[np.ndarray], h: int, w: int, threshold: float = 0.5
+    ) -> Dict[str, np.ndarray]:
+        """Extract detections from the HailoRT-postprocess output."""
+        xyxy: List[np.ndarray] = []
+        confidence: List[float] = []
+        class_id: List[int] = []
+        num_detections: int = 0
+
+        for i, detections in enumerate(hailo_output):
+            if len(detections) == 0:
                 continue
+            for detection in detections:
+                bbox, score = detection[:4], detection[4]
 
-            # Convert bbox to xyxy absolute pixel values
-            bbox[0], bbox[1], bbox[2], bbox[3] = (
-                bbox[1] * w,
-                bbox[0] * h,
-                bbox[3] * w,
-                bbox[2] * h,
-            )
-            if i in [2,5,7]:
-                xyxy.append(bbox)
-                confidence.append(score)
-                class_id.append(i)
-                num_detections += 1
+                if score < threshold:
+                    continue
 
-    return {
-        "xyxy": np.array(xyxy),
-        "confidence": np.array(confidence),
-        "class_id": np.array(class_id),
-        "num_detections": num_detections,
-    }
+                # Convert bbox to xyxy absolute pixel values
+                bbox[0], bbox[1], bbox[2], bbox[3] = (
+                    bbox[1] * w,
+                    bbox[0] * h,
+                    bbox[3] * w,
+                    bbox[2] * h,
+                )
+                if i in [2,5,7]:
+                    xyxy.append(bbox)
+                    confidence.append(score)
+                    class_id.append(i)
+                    num_detections += 1
 
-def postprocess_detections(
-    frame: np.ndarray,
-    detections: Dict[str, np.ndarray],
-    class_names: List[str],
-    tracker: sv.ByteTrack,
-    box_annotator: sv.RoundBoxAnnotator,
-    label_annotator: sv.LabelAnnotator,
-    distance_estimater: DistanceEstimater,
+        return {
+            "xyxy": np.array(xyxy),
+            "confidence": np.array(confidence),
+            "class_id": np.array(class_id),
+            "num_detections": num_detections,
+        }
 
-) -> np.ndarray:
-    """Postprocess the detections by annotating the frame with bounding boxes and labels."""
-    sv_detections = sv.Detections(
-        xyxy=detections["xyxy"],
-        confidence=detections["confidence"],
-        class_id=detections["class_id"],
-    )
+    def _process_detections(
+        self,
+        detections: Dict[str, np.ndarray],
+        ) -> np.ndarray:
 
-    #* Update detections with tracking information
-    sv_detections = tracker.update_with_detections(sv_detections)
+        sv_detections = sv.Detections(
+            xyxy=detections["xyxy"],
+            confidence=detections["confidence"],
+            class_id=detections["class_id"]
+        )
 
-    distance_estimater.add_detection(sv_detections)
-    
-    # gets labels for displaying
-    labels: List[str] = distance_estimater.get_display_labels(sv_detections)
+        #* Update detections with tracking information
+        sv_detections = self.tracker.update_with_detections(sv_detections)
 
-    # Annotate objects with bounding boxes
-    annotated_frame: np.ndarray = box_annotator.annotate(
-        scene=frame.copy(), detections=sv_detections
-    )
-    # Annotate objects with labels
-    annotated_labeled_frame: np.ndarray = label_annotator.annotate(
-        scene=annotated_frame, detections=sv_detections, labels=labels
-    )
-    
-    return annotated_labeled_frame, sv_detections
+        self.distance_estimater.add_detection(sv_detections)
+        min_time, min_id, latest_d = self.distance_estimater.check_crash()
+        return sv_detections
+        
+
+    def _annotate_frame(self,frame: np.ndarray,sv_detections:sv.Detections) -> np.ndarray:
+        """Postprocess the detections by annotating the frame with bounding boxes and labels."""
+        
+
+        # only if it has to be displayed, otherwise not necessary
+        # gets labels for displaying
+        labels: List[str] = self.distance_estimater.get_display_labels(sv_detections)
+
+        # Annotate objects with bounding boxes
+        annotated_frame: np.ndarray = self.box_annotator.annotate(
+            scene=frame.copy(), detections=sv_detections
+        )
+        # Annotate objects with labels
+        annotated_labeled_frame: np.ndarray = self.label_annotator.annotate(
+            scene=annotated_frame, detections=sv_detections, labels=labels
+        )
+
+        return annotated_labeled_frame
 
 def setParameters():
     parameters = Parameters()
     parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
     parameters.set_input_video(input_video_path=Parameters.DEFAULT_VIDEO_PATHS[1])
-    parameters.set_displaying(displayFrame=False,save_frame_debug=True)
+    parameters.set_displaying(displayFrame=False,save_frame_debug=True, display_coming_distance=False, save_coming_distance=False)
     parameters.set_max_fps()
     return parameters
     
@@ -409,5 +420,7 @@ if __name__ == "__main__":
     parameters = setParameters()
     data_manager = DataManager(parameters)
     while True:
-        data_manager.run()
+        data_manager.run_process()
+
+        
     

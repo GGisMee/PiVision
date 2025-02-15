@@ -5,11 +5,16 @@ from collections import deque
 import time
 from detection_with_tracker.fit_to_points import PolyFitting
 import json
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from detection_with_tracker.detection_with_tracker import Parameters  
+
 
 class DistanceEstimater:
     ID_TO_HEIGHTS = {2: 1.5, 5: 3, 7:2} # pairs up class_id:s to vehicles height.
 
-    def __init__(self, parameters, class_names:list, wh:tuple[int]):
+    def __init__(self, parameters:'Parameters', class_names:list, wh:tuple[int]):
         '''A class to encapsule the distance estimation process
         
         Inputed args:
@@ -25,13 +30,16 @@ class DistanceEstimater:
 
         self.class_names = class_names
 
-        self.FOCAL_LENGTH = 248
-        self.cap = 20 # how many datapoints to store in the time distance lists..
+        self.FOCAL_LENGTH = 248 # In pixels!
+        self.list_length_cap = 20 # how many datapoints to store in the time distance lists..
+        self.min_length_datapoints = 10
         self.start_time = None
 
-        self.nr_det = 0
 
-        self.poly_fitter = PolyFitting(degree=1, weight_function_info={'min_weight': 0.1,'max_weight': 1,'scale_factor': 1,'decay_rate': 1,'mode': 'linear'}, saving= True)
+        self.save_coming_distance = parameters.save_coming_distance
+        self.display_coming_distance = parameters.display_coming_distance
+
+        self.poly_fitter = PolyFitting(degree=1, weight_function_info={'min_weight': 0.1,'max_weight': 1,'scale_factor': 1,'decay_rate': 1,'mode': 'linear'}, saving= self.save_coming_distance, viewing=self.display_coming_distance)
 
         self.camera_angle = 0.5688062974 # angle. might produce poor composant estimates with other cameras. Made for raspberry pi
         self.frame_width = 640 # pixels in the aspect ratio which was converted to.
@@ -49,10 +57,10 @@ class DistanceEstimater:
                 # create the specific data holders for the tracker_id
                 # I use a deque here to limit the amount of variables in the list. 
                 # This makes sure that the num calculations stay low and only relative data is used
-                distance_deque = deque(maxlen=self.cap)
-                dx_deque = deque(maxlen=self.cap)
-                dy_deque = deque(maxlen=self.cap)
-                time_deque = deque(maxlen=self.cap)
+                distance_deque = deque(maxlen=self.list_length_cap)
+                dx_deque = deque(maxlen=self.list_length_cap)
+                dy_deque = deque(maxlen=self.list_length_cap)
+                time_deque = deque(maxlen=self.list_length_cap)
                 self.data[tracker_id] = {'d':distance_deque, 'dx':dx_deque, 'dy':dy_deque, 't':time_deque}
 
                 # adds the class of the tracker_id
@@ -90,6 +98,7 @@ class DistanceEstimater:
 
         return (d,dx , dy)  # 3D vector from camera to bbox center
 
+
     def get_display_labels(self, sv_detections: sv.Detections):
         labels = []
         for tracker_id in sv_detections.tracker_id:
@@ -107,13 +116,18 @@ class DistanceEstimater:
         min_time = np.inf
         min_id = None
         latest_d = None
+
         for tracker_id in self.data.keys():
-            come_dx, come_dy, come_t = self.poly_fitter.update(self.data)
+            if len(self.data[tracker_id]['t'])<self.min_length_datapoints:
+                continue
+            come_dx, come_dy, come_t = self.poly_fitter.update(self.data[tracker_id])
+
             # time = self.poly_fitter
             x_hit_interval = [-0.9, 0.9]
             y_hit_interval = [-2.3, 2.3]
             hit_check_x = (x_hit_interval[0] < come_dx) & (come_dx< x_hit_interval[1])
             hit_check_y = (y_hit_interval[0] < come_dy) & (come_dy< y_hit_interval[1])
+
 
             in_car = np.bitwise_and(hit_check_x, hit_check_y)
             if np.any(in_car):
@@ -121,9 +135,9 @@ class DistanceEstimater:
                 time_until_in_car = np.min(times_until_in_car)
                 if time_until_in_car < min_time:
                     min_time = np.min(time_until_in_car)
-                    latest_d = self.data['d'][-1]
+                    latest_d = self.data[tracker_id]['d'][-1]
                     min_id = tracker_id
-                self.check_warning(time_until_in_car)
+            
         return min_time, min_id, latest_d
         
 def derive(y):

@@ -4,6 +4,10 @@ import matplotlib.pyplot as plt
 from detection_with_tracker.test_open import open_image_in_vscode
 from typing import Union
 import os
+
+from utils.timetester import timetester
+
+
 # look into: https://chatgpt.com/share/67969aa3-53f8-8001-9db8-5b45fd5beef9
 
 # decay rate++: https://chatgpt.com/share/6799f45c-55f4-8001-be53-3d693aec06dc
@@ -127,20 +131,21 @@ class PolyFitting:
         forward_coeff = self.fit(dy,t)
 
         # adds time from last datapoint
-        t_boundries = [max(t)+t_boundries[0], max(t)+t_boundries[5]]
+        t_boundries = [max(t)+t_boundries[0], max(t)+t_boundries[1]]
 
         coming_time:np.ndarray = np.linspace(t_boundries[0], t_boundries[1], num = 10)
         coming_distance_x:np.ndarray[float] = np.polyval(side_coeff, coming_time)
         coming_distance_y:np.ndarray[float] = np.polyval(forward_coeff, coming_time)
 
-        
 
+        
         self.view(dy=dy, 
                   dx=dx, 
                   t=t, 
                   coming_t=coming_time, 
                   coming_d_x=coming_distance_x, 
                   coming_d_y=coming_distance_y)
+        
         return coming_distance_x, coming_distance_y, coming_time
 
         # return self.get_intersection()
@@ -164,7 +169,6 @@ class PolyFitting:
                 return
             plt.savefig('output/distance', dpi=300)
             plt.close()
-            print(f'Plot saved to output/distance')        
 
 if __name__ == '__main__':
     'Example of how it might look'
