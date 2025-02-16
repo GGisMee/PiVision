@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 
 class DistanceEstimater:
     ID_TO_HEIGHTS = {2: 1.5, 5: 3, 7:2} # pairs up class_id:s to vehicles height.
-
     def __init__(self, parameters:'Parameters', class_names:list, wh:tuple[int]):
         '''A class to encapsule the distance estimation process
         
@@ -34,7 +33,6 @@ class DistanceEstimater:
         self.list_length_cap = 20 # how many datapoints to store in the time distance lists..
         self.min_length_datapoints = 10
         self.start_time = None
-
 
         self.save_coming_distance = parameters.save_coming_distance
         self.display_coming_distance = parameters.display_coming_distance
@@ -73,8 +71,11 @@ class DistanceEstimater:
             self.data[tracker_id]['t'].append(time.time()-self.start_time)
 
     def _get_distance(self, xyxy, class_id):
-        '''Gets the 3D distance vector to the center of an xyxy box'''
-
+        '''Determines the distance to a vehicle.
+        
+        Parameters:
+            xyxy: A xyxy box array in the frame
+            class_id: The corresponding class_id, i.e. which type of vehicle it is.'''
         def get_real_world_distance() -> float:
             h_pixels:int = xyxy[3] - xyxy[1]  # Bounding box height in pixels
             w_pixels:int = xyxy[2] - xyxy[0]  # Bounding box width in pixels
@@ -86,20 +87,17 @@ class DistanceEstimater:
 
         def get_composites(d:float):
             distance_from_center_x = (xyxy[0]+xyxy[2])/2- self.frame_width/2
-
             dx = d/self.distance_pixels*(distance_from_center_x) # for aspect ratio of 1920x1080
-
             dy = d*np.sqrt(1-(distance_from_center_x**2)/(self.distance_pixels**2))
             return dx,dy
     
         d = get_real_world_distance()
         dx, dy = get_composites(d)
 
-
         return (d,dx , dy)  # 3D vector from camera to bbox center
 
-
     def get_display_labels(self, sv_detections: sv.Detections):
+        '''Get the labels which will then be displayed for each of the cars.'''
         labels = []
         for tracker_id in sv_detections.tracker_id:
             class_id = self.data_corresponding_class[tracker_id]
@@ -139,7 +137,29 @@ class DistanceEstimater:
                     min_id = tracker_id
             
         return min_time, min_id, latest_d
-        
+
+    def get_front_dist(self):
+        '''To get the distance to the car in front of you'''
+        min_derivative = 1/8 # Om den befinner sig inom en där dx < min_derivative * dy
+        closest_front_distance = np.inf
+        for tracker_id in self.data.keys():
+            if len(self.data[tracker_id]['t'])<self.min_length_datapoints:
+                continue
+            dx = self.data[tracker_id]['dx'][-1]
+            dy = self.data[tracker_id]['dy'][-1]
+            if (dx < min_derivative * dy) and dx<closest_front_distance:
+                closest_front_distance = dy
+        return closest_front_distance
+
+    def get_closest_dist(self):
+        '''To get the distance to the car closest to you'''
+        closest_d = np.inf
+        for tracker_id in self.data.keys():        
+            closest_d_id = self.data[tracker_id]['d'][-1]
+            if closest_d > closest_d_id:
+                closest_d = closest_d_id
+        return closest_d
+
 def derive(y):
     return np.insert((y[1:]-y[:-1]),0,0)
     

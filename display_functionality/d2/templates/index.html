@@ -14,9 +14,9 @@
             // console.log("Received data:", data);  // Debugging output
             document.getElementById("d_front").innerText = data["d_front"];
             document.getElementById("time").innerText = data["time"];
-            document.getElementById("antal_nu").innerText = data["antal_nu"];
+            document.getElementById("num_now").innerText = data["num_now"];
             document.getElementById("antal_totalt").innerText = data["antal_totalt"];
-            // document.getElementById("extra").innerText = data["extra"];
+            // document.getElementById("status").innerText = data["status"];
         });
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -134,7 +134,7 @@
 
                 </div>
                 <span class="divider"></span>
-                <div id="antal_nu" class="content">{{ data["antal_nu"] }}</div>
+                <div id="num_now" class="content">{{ data["num_now"] }}</div>
             </div>
             <div class="box">
                 <div class="header">

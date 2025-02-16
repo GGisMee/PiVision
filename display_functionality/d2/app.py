@@ -11,7 +11,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 current_data = {
     "time": "00:00",
     "d_front": 150,
-    "antal_nu": 3,
+    "num_now": 3,
     "antal_totalt": 10,
     "extra": ""
 }
@@ -20,18 +20,18 @@ def get_data():
     """ Return the latest data """
     return current_data
 
-def update_data():
+def update_data(time:str, d_front:float, num_now:int, warning_status: int):
     """ Simulate real-time updates """
-    while True:
-        current_data["time"] = time.strftime("%H:%M:%S")  # Update time
-        current_data["d_front"] = random.randint(100, 200)  # Simulate sensor data
-        current_data["antal_nu"] = random.randint(1, 5)
-        # current_data["extra"] = ''
-        current_data["antal_totalt"] = random.randint(20, 35)
+
+    current_data["time"] = time
+    current_data["d_front"] = d_front  # Simulate sensor data
+    current_data["num_now"] = num_now
+    current_data["status"] = warning_status
+    current_data["antal_totalt"] = random.randint(20, 35)
         
-        # Send updated data to all connected clients
-        socketio.emit('update', current_data)
-        time.sleep(1)  # Update every second
+    # Send updated data to all connected clients
+    socketio.emit('update', current_data)
+    time.sleep(1)  # Update every second
 
 @app.route("/")
 def index():
