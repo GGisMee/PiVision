@@ -28,16 +28,18 @@
             padding: 10px;
             background-color: #f1f1f1;
             border: 1px solid #ccc;
+            word-wrap: break-word;
         }
     </style>
 </head>
 <body>
     <h1>Real-Time Flask App</h1>
     
-    <button class="btn" onclick="sendAction('button_one')">Start recording</button>
-    <button class="btn" onclick="sendAction('button_two')">Stop recording</button>
-    <button class="btn" onclick="sendAction('button_three')">Save as mp4</button>
+    <button class="btn" onclick="sendAction('start_recording')">Start recording</button>
+    <button class="btn" onclick="sendAction('stop_recording')">Stop recording</button>
+    <button class="btn" onclick="sendAction('save_mp4')">Save as mp4</button>
     <button class="btn" onclick="sendAction('stop_button')">Close down</button>
+    <button class="btn" onclick="sendAction('snap_picture')">Take Snapshot</button>
 
     <div id="output"></div>
 
