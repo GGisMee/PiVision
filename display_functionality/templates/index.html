@@ -14,24 +14,46 @@
             document.getElementById("d_front").innerText = data["d_front"];
             document.getElementById("time").innerText = data["time"];
             document.getElementById("num_now").innerText = data["num_now"];
-            document.getElementById("antal_totalt").innerText = data["antal_totalt"];
+            document.getElementById("d_close").innerText = data["d_close"];
+        });
+
+        // Listen for battery status updates
+        socket.on('battery_update', function(data) {
+            var batteryIcon = document.getElementById("batteryIcon");
+            console.log("Battery data recieved ", data.level);
+
+            if (data.level > 75) {
+                batteryIcon.classList.add("fa-battery-full");
+                batteryIcon.classList.remove("fa-battery-half", "fa-battery-quarter", "fa-battery-empty");
+            } else if (data.level > 50) {
+                batteryIcon.classList.add("fa-battery-half");
+                batteryIcon.classList.remove("fa-battery-full", "fa-battery-quarter", "fa-battery-empty");
+            } else if (data.level > 25) {
+                batteryIcon.classList.add("fa-battery-quarter");
+                batteryIcon.classList.remove("fa-battery-full", "fa-battery-half", "fa-battery-empty");
+            } else {
+                batteryIcon.classList.add("fa-battery-empty");
+                batteryIcon.classList.remove("fa-battery-full", "fa-battery-half", "fa-battery-quarter");
+            }
         });
 
         function toggleButton() {
             var button = document.getElementById("toggleButton");
-            var currentState = button.innerText;
-    
-            if (currentState === "Start") {
+            var currentState = button.getAttribute("data-state");
+
+            if (currentState === "start") {
+                button.setAttribute("data-state", "stop");
                 button.innerText = "Stop";
                 button.style.backgroundColor = "lightcoral";
                 sendStateToServer("start");
             } else {
+                button.setAttribute("data-state", "start");
                 button.innerText = "Start";
                 button.style.backgroundColor = "lightgreen";
                 sendStateToServer("stop");
             }
         }
-    
+
         function sendStateToServer(state) {
             fetch('/toggle', {
                 method: 'POST',
@@ -41,7 +63,6 @@
                 body: JSON.stringify({ action: state })
             });
         }
-
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -110,6 +131,12 @@
             vertical-align: middle;
         }
         
+        
+        @media (max-width: 430px) {
+            .container { flex-direction: column; gap: 40px; padding: 40px; }
+            .box { font-size: 2em; padding: 30px; }
+        }
+
         .sidebar {
             width: 250px;
             background-color: #252525;
@@ -118,20 +145,51 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            padding: 20px;
         }
-        
-        @media (max-width: 430px) {
-            .container { flex-direction: column; gap: 40px; padding: 40px; }
-            .box { font-size: 2em; padding: 30px; }
+
+        .battery-icon {
+            padding: 20px;
+            font-size: 6em; /* Adjust font size for better visibility */
+            width: auto;
+            vertical-align: middle;
+            margin: 0; /* Remove margin */
+            text-align: center; /* Center the icon horizontally */
+            align-self: flex-start; /* Align it at the top */
+            display: flex;
+            justify-content: center; /* Center the icon horizontally */
         }
+
         #toggleButton {
-            width: 100px;
-            padding: 10px;
-            font-size: 16px;
+            width: 60%;  /* Narrow width */
+            height: 20%; /* Increased height */
+            font-size: 40px;
+            font-weight: bold;
             border: none;
-            border-radius: 5px;
+            border-radius: 30px;  /* Rounded corners */
             cursor: pointer;
             background-color: lightgreen;
+            writing-mode: vertical-rl; /* Rotate text */
+            text-orientation: mixed;  /* Ensure proper text orientation */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+            transition: background-color 0.3s ease-in-out, transform 0.1s;
+        }
+
+        #sidebar_other_content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #battery_container{
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
@@ -140,20 +198,21 @@
         <div class="column">
             <div class="box">
                 <div class="header">
-                    <span class="title">d_front</span>
+                    <span class="title">Avstånd fram</span>
                     <span class="icon"><i class="fas fa-ruler"></i></span>
                 </div>
                 <span class="divider"></span>
-                <div id="d_front" class="content">{{ data["d_front"] }} m</div>
+                <div id="d_front" class="content">{{ data["d_front"] }}{% if data["d_front"] != '-' %} m{% endif %}</div>
             </div>
             <div class="box">
                 <div class="header">
-                    <span class="title">Tid</span>
-                    <span class="icon"><i class="fa-regular fa-clock"></i></span>
+                    <span class="title">Avstånd Nära</span>
+                    <span class="icon"><i class="fas fa-ruler"></i></span>
                 </div>
                 <span class="divider"></span>
-                <div id="time" class="content">{{ data["time"] }}</div>
+                <div id="d_close" class="content">{{ data["d_close"]}}{% if data["d_front"] != '-' %} m{% endif %}</div>
             </div>
+            
         </div>
         <div class="column middle">
             <div class="box">{{ data["extra"] }}</div>
@@ -165,20 +224,28 @@
                     <span class="icon"><img src="{{ url_for('static', filename='cars_icon.png') }}" alt="Cars Icon" width="30"></span>
                 </div>
                 <span class="divider"></span>
-                <div id="num_now" class="content">{{ data["num_now"] }}</div>
+                <div id="num_now" class="content">{{data["num_now"]}}</div>
             </div>
-            <div class="box">
-                <div class="header">
-                    <span class="title">Antal Totalt</span>
-                    <span class="icon"><i class="fas fa-users"></i></span>
-                </div>
-                <span class="divider"></span>
-                <div id="antal_totalt" class="content">{{ data["antal_totalt"] }}</div>
+        <div class="box">
+            <div class="header">
+                <span class="title">Tid</span>
+                <span class="icon"><i class="fa-regular fa-clock"></i></span>
             </div>
+            <span class="divider"></span>
+            <div id="time" class="content">{{ data["time"] }}</div>
         </div>
     </div>
-    <div class="sidebar">
-        <button id="toggleButton" class="start-button" onclick="toggleButton()">Start</button>
+</div>
+<div class="sidebar">
+    <!-- Battery Icon -->
+     <div id="battery_container">
+        <div id="batteryIcon" class="battery-icon">
+            <i class="fas fa-battery-full"></i> <!-- Default icon -->
+        </div>
     </div>
+    <div id='sidebar_other_content'>
+        <button id="toggleButton" onclick="toggleButton()" data-state="start">Start</button>
+    </div>
+</div>
+
 </body>
-</html>
