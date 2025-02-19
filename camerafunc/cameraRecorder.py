@@ -24,7 +24,7 @@ def get_paths(no_usb = False, new:bool = True):
     # Checks if the usb is plugged in.
     if not os.path.isdir(usb_path) or no_usb:
         print('No USB')
-        directory = 'resources/videos'
+        directory = 'output/videos'
     else:
         print('USB')
         directory = usb_path

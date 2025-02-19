@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time Flask App</title>
+    <title>Flask Camera Functionality</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         body {
@@ -40,6 +40,7 @@
     <button class="btn" onclick="sendAction('save_mp4')">Save as mp4</button>
     <button class="btn" onclick="sendAction('stop_button')">Close down</button>
     <button class="btn" onclick="sendAction('snap_picture')">Take Snapshot</button>
+    <button class="btn" onclick="sendAction('clear_output');clearOutput()" style="background-color: #f44336;">Clear Output</button>
 
     <div id="output"></div>
 
@@ -55,6 +56,11 @@
         // Function to send button action to the server
         function sendAction(action) {
             socket.emit('button_pressed', action);
+        }
+
+        // Function to clear output
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '';
         }
     </script>
 </body>

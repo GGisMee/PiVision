@@ -9,8 +9,8 @@ from display_functionality.app import RealTimeServer
 
 class MainManager:
     def __init__(self):
-        data_manager = DataManager()
-        server = RealTimeServer()
+        self.data_manager = DataManager()
+        self.server = RealTimeServer()
         self.parameters = self.setParameters(rpicam=False)
     def setParameters(self,rpicam:bool=False):
         parameters = Parameters()

@@ -24,8 +24,7 @@ def create_app():
 
     def start_recording():
         global camera_started, cameraOn
-        directory, video_paths = get_paths()
-        video_path = video_paths['.h264']
+        directory, video_path, _ = get_paths()
         display(f'path: {video_path}')
         cameraOn = True
         display('Recording started')
@@ -42,9 +41,7 @@ def create_app():
         os.kill(os.getpid(), signal.SIGINT)
 
     def save_mp4():
-        directory, video_paths = get_paths(new=False)
-        video_path = video_paths['.h264']
-        video_path_mp4 = video_paths['.mp4']
+        directory, video_path, video_path_mp4 = get_paths(new=False)
         if get_available_space(directory) >= get_file_size(video_path) + 2:
             subprocess.run(["ffmpeg", "-y", "-i", video_path, "-c:v", "copy", video_path_mp4])
         else:
@@ -57,6 +54,10 @@ def create_app():
         _, buffer = cv2.imencode('.jpg', frame)
         jpg_as_text = base64.b64encode(buffer).decode('utf-8')
         display(f"Snapshot taken: {complete_filename} <br> <img src='data:image/jpeg;base64,{jpg_as_text}' width='300'/>")
+
+    def clear_output():
+        global displayInfo
+        displayInfo = ""
 
     @app.route('/')
     def index():
@@ -74,6 +75,8 @@ def create_app():
             stop_button()
         elif data == 'snap_picture':
             snap_picture()
+        elif data == 'clear_output':
+            clear_output()
 
     return app, socketio
 
