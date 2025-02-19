@@ -1,0 +1,12 @@
+{
+    "configurations": [
+        {
+            "name": "Python: Module",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "${relativeFileDirname}.${fileBasenameNoExtension}",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ]
+}
