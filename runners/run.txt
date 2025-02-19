@@ -1,1 +1,0 @@
-/home/gustavgamstedt/Desktop/Programming/PiVision/runners/runner.py

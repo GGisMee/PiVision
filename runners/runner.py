@@ -1,6 +1,6 @@
 # https://chatgpt.com/share/677ed560-6fa4-8001-9588-3bd453b0bf3d
 
-
+from camera_web.app import create_app
 import subprocess
 from picamera2 import Picamera2
 import time
@@ -30,6 +30,8 @@ def check_camera():
         try:
             cam = Picamera2()
             cam.start_preview()
+            cam.stop()
+            cam.close()
             return 0
         except Exception as e:
             return 1
@@ -52,6 +54,9 @@ def log_timestamp():
 
 
 # Command to run the file using python -m
-command = ['python', '-m', 'web.app']  # Assuming 'flask.app' is the module you want to run
-subprocess.run(command)
+#command = ['python', '-m', 'camera_web.app']  # Assuming 'flask.app' is the module you want to run
+#subprocess.Popen(command)
+app, socketio = create_app()
+socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
 log_timestamp()
+
