@@ -4,7 +4,7 @@ import time
 import threading
 import random
 
-class RealTimeServer:
+class WebServer:
     def __init__(self):
         self.app = Flask(__name__)
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")
@@ -69,5 +69,5 @@ class RealTimeServer:
         self.socketio.run(self.app, debug=debug)
 
 if __name__ == "__main__":
-    server = RealTimeServer()
+    server = WebServer()
     server.run()

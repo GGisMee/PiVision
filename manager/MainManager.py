@@ -1,7 +1,7 @@
 from detection_with_tracker.detection_with_tracker import DataManager
 from detection_with_tracker.detection_with_tracker import Parameters
 
-from display_functionality.app import RealTimeServer
+from display_functionality.app import WebServer
 
 # python -m manager.MainManager
 
@@ -10,7 +10,7 @@ from display_functionality.app import RealTimeServer
 class MainManager:
     def __init__(self):
         self.data_manager = DataManager()
-        self.server = RealTimeServer()
+        self.server = WebServer()
         self.parameters = self.setParameters(rpicam=False)
     def setParameters(self,rpicam:bool=False):
         parameters = Parameters()
