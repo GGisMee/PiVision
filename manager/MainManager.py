@@ -1,4 +1,4 @@
-from detection_with_tracker.detection_with_tracker import DataManager
+from detection_with_tracker.detection_with_tracker import DetectionManager
 from detection_with_tracker.detection_with_tracker import Parameters
 
 from display_functionality.app import WebServer
@@ -9,7 +9,7 @@ from display_functionality.app import WebServer
 
 class MainManager:
     def __init__(self):
-        self.data_manager = DataManager()
+        self.detection_manager = DetectionManager()
         self.server = WebServer()
         self.parameters = self.setParameters(rpicam=False)
     def setParameters(self,rpicam:bool=False):

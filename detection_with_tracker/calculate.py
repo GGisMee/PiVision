@@ -7,11 +7,12 @@ from detection_with_tracker.fit_to_points import PolyFitting
 import json
 from typing import TYPE_CHECKING
 
+# Ensures that type anotations work without circular imports
 if TYPE_CHECKING:
     from detection_with_tracker.detection_with_tracker import Parameters  
 
 
-class DistanceEstimater:
+class DistanceEstimator:
     ID_TO_HEIGHTS = {2: 1.5, 5: 3, 7:2} # pairs up class_id:s to vehicles height.
     def __init__(self, parameters:'Parameters', class_names:list, wh:tuple[int]):
         '''A class to encapsule the distance estimation process
@@ -88,7 +89,8 @@ class DistanceEstimater:
         def get_composites(d:float):
             distance_from_center_x = (xyxy[0]+xyxy[2])/2- self.frame_width/2
             dx = d/self.distance_pixels*(distance_from_center_x) # for aspect ratio of 1920x1080
-            dy = d*np.sqrt(1-(distance_from_center_x**2)/(self.distance_pixels**2))
+            # dy = d*np.sqrt(1-(distance_from_center_x**2)/(self.distance_pixels**2))
+            dy = np.sqrt(d**2-dx**2) # simple use of pythagoras theorem, equal to the one above, but less calculations
             return dx,dy
     
         d = get_real_world_distance()

@@ -17,7 +17,7 @@ from rich.text import Text
 import psutil
 from collections import deque
 
-from detection_with_tracker.calculate import DistanceEstimater
+from detection_with_tracker.calculate import DistanceEstimator
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -210,7 +210,7 @@ class Displayer:
     def save_img(self,frame:np.ndarray):
         cv2.imwrite(filename='output/showed_img.png', img=frame)
 
-class DataManager:
+class DetectionManager:
     def __init__(self, parameters:Parameters):
         self.parameters = parameters
 
@@ -246,7 +246,7 @@ class DataManager:
         self.framegrabber = FrameGrabber(self.parameters)
         self.frame_w, self.frame_h = self.framegrabber.get_wh_set_generator()
 
-        self.distance_estimater = DistanceEstimater(self.parameters, self.class_names, (self.frame_w, self.frame_h))
+        self.distance_estimator = DistanceEstimator(self.parameters, self.class_names, (self.frame_w, self.frame_h))
         self.displayer = Displayer(self.parameters)
         self.frame_number_handler = FrameNumberHandler(self.parameters.max_fps)
 
@@ -384,10 +384,10 @@ class DataManager:
         #* Update detections with tracking information
         sv_detections = self.tracker.update_with_detections(sv_detections)
 
-        self.distance_estimater.add_detection(sv_detections)
-        min_time, min_id, latest_d = self.distance_estimater.check_crash()
-        front_dist = self.distance_estimater.get_front_dist()
-        closest_distance = self.distance_estimater.get_closest_dist()
+        self.distance_estimator.add_detection(sv_detections)
+        min_time, min_id, latest_d = self.distance_estimator.check_crash()
+        front_dist = self.distance_estimator.get_front_dist()
+        closest_distance = self.distance_estimator.get_closest_dist()
         return sv_detections
         
 
@@ -396,7 +396,7 @@ class DataManager:
         
         # only if it has to be displayed, otherwise not necessary
         # gets labels for displaying
-        labels: List[str] = self.distance_estimater.get_display_labels(sv_detections)
+        labels: List[str] = self.distance_estimator.get_display_labels(sv_detections)
 
         # Annotate objects with bounding boxes
         annotated_frame: np.ndarray = self.box_annotator.annotate(
@@ -419,7 +419,7 @@ def setParameters():
     
 if __name__ == "__main__":
     parameters = setParameters()
-    data_manager = DataManager(parameters)
+    data_manager = DetectionManager(parameters)
     while True:
         data_manager.run_process()
 
