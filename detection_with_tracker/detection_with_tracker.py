@@ -390,7 +390,6 @@ class DataManager:
         closest_distance = self.distance_estimater.get_closest_dist()
         return sv_detections
         
-
     def _annotate_frame(self,frame: np.ndarray,sv_detections:sv.Detections) -> np.ndarray:
         """Postprocess the detections by annotating the frame with bounding boxes and labels."""
         

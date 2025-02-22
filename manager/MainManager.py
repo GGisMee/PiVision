@@ -8,6 +8,7 @@ from display_functionality.app import WebServer
 
 
 class MainManager:
+    '''the main file which manages all the functionality'''
     def __init__(self):
         self.data_manager = DataManager()
         self.server = WebServer()
