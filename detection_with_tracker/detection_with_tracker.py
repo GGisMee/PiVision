@@ -417,6 +417,7 @@ def setParameters():
     return parameters
     
 if __name__ == "__main__":
+    print('Running from detection_with_tracker')
     parameters = setParameters()
     data_manager = DetectionManager(parameters)
     while True:

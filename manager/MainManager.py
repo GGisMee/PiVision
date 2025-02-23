@@ -24,6 +24,7 @@ class MainManager:
         # self.detection_manager.start_process()    
         self.server.set_start()
         self.running = True
+        self.run()
 
         self.run()
     def stop_process(self):
@@ -43,4 +44,5 @@ class MainManager:
             self.server.update_data()
 
 if __name__ == "__main__":
+    print('Running from MainManager')
     main_manager = MainManager()

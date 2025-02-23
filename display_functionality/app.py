@@ -67,6 +67,7 @@ class WebServer:
             2 = error
             3 = critical
             4 = debug"""
+        type = ['INFO','WARNING','ERROR','CRITICAL','DEBUG'][type]
         if self.start_timestamp:
             self.start_timestamp - time.time()
             time_str = time.strftime("%H:%M:%S", time.localtime(self.start_timestamp))
@@ -99,10 +100,10 @@ class WebServer:
         self.start_timestamp = None
         self.last_battery_check_timestamp = None
 
-    def run(self, debug=True):
+    def run(self, debug=False):
         """ Start the Flask-SocketIO server """
         # self.thread.start()
-        self.socketio.run(self.app, debug=debug)
+        self.socketio.run(self.app, debug=debug, host='0.0.0.0', port=5000)
 
 if __name__ == "__main__":
     server = WebServer(None)
