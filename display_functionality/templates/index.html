@@ -17,6 +17,10 @@
             document.getElementById("d_close").innerText = data["d_close"];
         });
 
+        socket.on('log', function(text) {
+            console.log(text);
+        });
+
         // Listen for battery status updates
         socket.on('battery_update', function(data) {
             var batteryIcon = document.getElementById("batteryIcon");

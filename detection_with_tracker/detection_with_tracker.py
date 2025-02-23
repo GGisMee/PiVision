@@ -385,9 +385,9 @@ class DetectionManager:
         sv_detections = self.tracker.update_with_detections(sv_detections)
 
         self.distance_estimator.add_detection(sv_detections)
-        min_time, min_id, latest_d = self.distance_estimator.check_crash()
-        front_dist = self.distance_estimator.get_front_dist()
-        closest_distance = self.distance_estimator.get_closest_dist()
+        self.crash_time, self.crash_id, self.current_crash_d = self.distance_estimator.check_crash()
+        self.front_dist = self.distance_estimator.get_front_dist()
+        self.closest_distance = self.distance_estimator.get_closest_dist()
         return sv_detections
         
     def _annotate_frame(self,frame: np.ndarray,sv_detections:sv.Detections) -> np.ndarray:
