@@ -15,6 +15,8 @@
             document.getElementById("time").innerText = data["time"];
             document.getElementById("num_now").innerText = data["num_now"];
             document.getElementById("d_close").innerText = data["d_close"];
+            updateStatus(data.status);
+            console.log('Data recieved', data);
         });
 
         socket.on('log', function(text) {
@@ -40,6 +42,21 @@
                 batteryIcon.classList.remove("fa-battery-full", "fa-battery-half", "fa-battery-quarter");
             }
         });
+
+        function updateStatus(status) {
+            // Loop through all the indicator boxes
+            let color;
+            if (status <= 3) {
+                    color = '#90ee90'
+                } else if (status <= 6) {
+                    color = '#f5f575'; 
+                } else {
+                    color = '#ff5252';
+                }
+            document.querySelectorAll('.indicator').forEach((box, index) => {
+                box.classList.toggle('active', index < status);
+            });
+        }
 
         function toggleButton() {
             var button = document.getElementById("toggleButton");
@@ -82,19 +99,23 @@
         .container { 
             display: flex; 
             flex: 1;
-            gap: 80px;
-            padding: 100px;
+            gap: 20px;
+            padding: 10px;
             box-sizing: border-box;
+            align-items: stretch;
         }
         .column { 
             display: flex; 
             flex-direction: column; 
-            flex: 1; 
-            gap: 120px; 
+            gap: 10px; 
+
+        }
+        .side {
+            flex:2;
+            
         }
         .middle { 
             flex: 4;
-            justify-content: center; 
         }
         .box { 
             display: flex;
@@ -103,8 +124,8 @@
             justify-content: center;
             background-color: #252525;
             color: white;
-            padding: 40px;
-            border-radius: 80px;
+            padding: 20px;
+            border-radius: 20px;
             flex: 1;
             text-align: center;
         }
@@ -113,8 +134,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 20px;
-            font-size: 4em;
+            gap: 10px;
+            font-size: 2em;
         }
         .box .divider {
             width: 100%;
@@ -123,7 +144,7 @@
             margin: 20px 0;
         }
         .box .content {
-            font-size: 5em;
+            font-size: 2em;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -142,19 +163,19 @@
         }
 
         .sidebar {
-            width: 250px;
+            width: 80px;
             background-color: #252525;
             color: white;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 10px;
         }
 
         .battery-icon {
             padding: 20px;
-            font-size: 6em; /* Adjust font size for better visibility */
+            font-size: 40px; /* Adjust font size for better visibility */
             width: auto;
             vertical-align: middle;
             margin: 0; /* Remove margin */
@@ -165,9 +186,9 @@
         }
 
         #toggleButton {
-            width: 60%;  /* Narrow width */
-            height: 20%; /* Increased height */
-            font-size: 40px;
+            width: 70%;  /* Narrow width */
+            height: 30%; /* Increased height */
+            font-size: 20px;
             font-weight: bold;
             border: none;
             border-radius: 30px;  /* Rounded corners */
@@ -195,11 +216,28 @@
             align-items: center;
             justify-content: center;
         }
+
+
+        /*Indication info*/
+        .indication_boxes {
+            display: flex;
+            gap: 5px;
+            width:100%;
+        }
+        .indicator {
+            width: 30px;
+            height: 30px;
+            border-radius: 10px;
+            background-color: rgb(111, 111, 111);
+        }
+        .indicator.active {
+            background-color: #ff5252;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="column">
+        <div class="column side">
             <div class="box">
                 <div class="header">
                     <span class="title">Avstånd fram</span>
@@ -219,9 +257,18 @@
             
         </div>
         <div class="column middle">
-            <div class="box">{{ data["extra"] }}</div>
+            <div class="box">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            
+                <div class="indication_boxes">
+                    {% for i in range(9) %}
+                        <div class="indicator" id="box{{ i }}"></div>
+                    {% endfor %}
+                </div>
+            </div>
+            
         </div>
-        <div class="column">
+        <div class="column side">
             <div class="box">
                 <div class="header">
                     <span class="title">Antal Nu</span>
@@ -251,5 +298,6 @@
         <button id="toggleButton" onclick="toggleButton()" data-state="start">Start</button>
     </div>
 </div>
+<button onclick="updateStatus(8)">Test Indicators</button>
 
 </body>

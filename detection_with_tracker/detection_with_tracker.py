@@ -47,7 +47,7 @@ class Parameters:
         self.labels_path = "detection_with_tracker/coco.txt"
         
         self.save_frame_debug = False
-        self.max_fps = None
+        self.max_fps = np.inf
 
 
     def _test_existance(self,paths:list[str]):
@@ -139,7 +139,7 @@ class FrameGrabber:
         return frame
      
 class FrameNumberHandler:
-    def __init__(self, max_fps: int = None):
+    def __init__(self, max_fps: int = np.inf):
         self.current_frame = 0
         self.fps = None
         self.start_time = None
@@ -250,8 +250,11 @@ class DetectionManager:
         self.displayer = Displayer(self.parameters)
         self.frame_number_handler = FrameNumberHandler(self.parameters.max_fps)
 
+
     def run_process(self):
         '''Runs through a loop taking the frame, running it through the ai, getting the detections, tracking them, updating distance and checking for danger'''
+        self.vehicle_detected = False
+
         #* Get frame
         self.frame_number_handler.update_frame()
         # displayer.start_timer()
@@ -284,11 +287,13 @@ class DetectionManager:
         self.frame_number_handler.update_fps()
         self.displayer.display_text(frame_number_handler=self.frame_number_handler)
 
+
+        self.num_detections = len(detections['class_id'])
         #* process detections
-        if len(detections['class_id']) == 0:
+        if self.num_detections == 0:
             return False
 
-
+        self.vehicle_detected = True
         #* Postprocess the detections 
         sv_detections = self._process_detections(detections=detections)
 
@@ -385,7 +390,7 @@ class DetectionManager:
         sv_detections = self.tracker.update_with_detections(sv_detections)
 
         self.distance_estimator.add_detection(sv_detections)
-        self.crash_time, self.crash_id, self.current_crash_d = self.distance_estimator.check_crash()
+        self.crash_status = self.distance_estimator.get_crash_status()
         self.front_dist = self.distance_estimator.get_front_dist()
         self.closest_distance = self.distance_estimator.get_closest_dist()
         return sv_detections

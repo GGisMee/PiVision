@@ -162,6 +162,11 @@ class DistanceEstimator:
                 closest_d = closest_d_id
         return closest_d
 
+    def get_crash_status(self):
+        '''To get the crash status'''
+        min_time, min_id, latest_d = self.check_crash()
+        
+
 def derive(y):
     return np.insert((y[1:]-y[:-1]),0,0)
     

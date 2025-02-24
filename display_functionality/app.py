@@ -35,7 +35,7 @@ class WebServer:
 
         @self.app.route("/")
         def index():
-            return render_template("index.html", data=self.get_data())
+            return render_template("index.j2", data=self.get_data())
 
         @self.app.route("/toggle", methods=["POST"])
         def toggle():
@@ -79,8 +79,16 @@ class WebServer:
         """ Return the latest data """
         return self.current_data
 
-    def update_data(self, time_str: str, d_front: float,d_close:int, num_now: int, warning_status: int):
+    def update_data(self, d_front: float,d_close:int, num_now: int, warning_status: int):
         """ Update data and notify clients """
+        
+        # gets time and formats it to either 01:10, or 01:02:30 depending on if hours are necessary
+        elapsed_seconds = time.time() - self.start_timestamp
+        time_str = time.strftime(
+            "%H:%M:%S" if elapsed_seconds >= 3600 else "%M:%S", 
+            time.gmtime(elapsed_seconds)
+        )
+        
         self.current_data.update({
             "time": time_str,
             "d_front": d_front,
@@ -102,9 +110,8 @@ class WebServer:
 
     def run(self, debug=False):
         """ Start the Flask-SocketIO server """
-        # self.thread.start()
         self.socketio.run(self.app, debug=debug, host='0.0.0.0', port=5000)
 
 if __name__ == "__main__":
     server = WebServer(None)
-    server.run()
+    server.run(True)
