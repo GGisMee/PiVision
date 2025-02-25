@@ -1,5 +1,3 @@
 ### Att göra
-22 jan
-* Fixa så att man kan välja display eller inte - Done
-* Börja jobba med boundrybox -> sträcka
-
+25 feb
+* Fixa ett sätt att integrera check crash, minsta avstånd, avstånd framför osv. Minskar tid och gör allt lättare.

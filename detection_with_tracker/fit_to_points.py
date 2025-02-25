@@ -92,23 +92,6 @@ class PolyFitting:
         else:
             raise ValueError("Invalid mode. Choose between 'linear' and 'exponential'")
 
-    def get_intersection(self) -> Union[float, None]:
-        '''Returns when the intersection will happen in seconds'''
-        if self.degree == 1:
-            m,k = self.coeff
-            intersection_time = -m/k
-            if not intersection_time < self.t[-1]:
-                return None
-            return intersection_time-self.t[-1]
-        else:
-            roots = np.roots(self.coeff)
-            roots = roots[np.isreal(roots)].real # Bara verkliga lösningar
-
-            higher_roots =  roots[roots >= self.t[-1]] # Endast brytpunkter större än senaste tidspunkt
-            if len(higher_roots) == 0: 
-                return None
-            return higher_roots[0]-self.t[-1] # om det är flera så väljs den första närmaste.
-        
     def fit(self, d:deque, t:deque):
         '''Fits the plot to the points.'''
         # Here we use w=self.weight_function(), since it has already been specified, we just run it
@@ -118,11 +101,8 @@ class PolyFitting:
 
     def update(self, data_for_car:dict, t_boundries: list[float] = [0.1,5]):
         '''Updates the s (distance) and t (time) lists'''
-        
-        
 
         t = data_for_car['t']
-        # d = data_for_car['d']
         dx = data_for_car['dx']
         dy = data_for_car['dy']
 
@@ -146,9 +126,8 @@ class PolyFitting:
                   coming_d_x=coming_distance_x, 
                   coming_d_y=coming_distance_y)
         
-        return coming_distance_x, coming_distance_y, coming_time
+        return coming_distance_x, coming_distance_y, coming_time, side_coeff, forward_coeff
 
-        # return self.get_intersection()
 
     def view(self, dy:np.ndarray,dx:np.ndarray,t:np.ndarray, coming_t:np.ndarray, coming_d_x:np.ndarray, coming_d_y:np.ndarray):
         if not self.viewing and not self.saving:

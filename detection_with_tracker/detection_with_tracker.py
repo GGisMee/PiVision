@@ -379,11 +379,7 @@ class DetectionManager:
             "num_detections": num_detections,
         }
 
-    def _process_detections(
-        self,
-        detections: Dict[str, np.ndarray],
-        ) -> np.ndarray:
-
+    def _process_detections(self, detections: Dict[str, np.ndarray],) -> np.ndarray:
         sv_detections = sv.Detections(
             xyxy=detections["xyxy"],
             confidence=detections["confidence"],

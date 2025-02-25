@@ -35,6 +35,8 @@ class DistanceEstimator:
         self.min_length_datapoints = 10
         self.start_time = None
 
+        self.vector_time = 1 # seconds from which the time vector is predicted from.
+
         self.save_coming_distance = parameters.save_coming_distance
         self.display_coming_distance = parameters.display_coming_distance
 
@@ -120,9 +122,8 @@ class DistanceEstimator:
         for tracker_id in self.data.keys():
             if len(self.data[tracker_id]['t'])<self.min_length_datapoints:
                 continue
-            come_dx, come_dy, come_t = self.poly_fitter.update(self.data[tracker_id])
+            come_dx, come_dy, come_t, side_coeff, forward_coeff = self.poly_fitter.update(self.data[tracker_id])
 
-            # time = self.poly_fitter
             x_hit_interval = [-0.9, 0.9]
             y_hit_interval = [-2.3, 2.3]
             hit_check_x = (x_hit_interval[0] < come_dx) & (come_dx< x_hit_interval[1])
@@ -172,8 +173,16 @@ class DistanceEstimator:
         status = 9 if status > 9 else status
         
         return status
-        
-        
+    
+    def get_datapoints(self):
+        '''Returns current datapoints, along with vector showing direction'''
+        datapoints = []
+        for tracker_id in self.data.keys():
+            dx = self.data[tracker_id]['dx'][-1]
+            dy = self.data[tracker_id]['dy'][-1]
+            vx:float
+            vy:float
+            datapoints.append([dx,dy,vx,vy])
 
 def derive(y):
     return np.insert((y[1:]-y[:-1]),0,0)
