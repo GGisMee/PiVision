@@ -64,9 +64,15 @@ class Parameters:
 
         self._test_existance([hef_path, labels_path])
         
-
         self.hef_path = hef_path
         self.labels_path = labels_path
+
+    def set_caps(self,rpi_camera_max_frames:int=np.inf, datapoint_cap = np.inf):
+        self.rpi_camera_max_frames = rpi_camera_max_frames
+        self.datapoint_cap = datapoint_cap
+        
+
+
 
     def set_max_fps(self, max_fps:int=10):
         self.max_fps = max_fps
@@ -75,7 +81,7 @@ class Parameters:
         '''Sets the parameters for the model, that is how the model should act'''
         self.score_threshold = score_threshold
 
-    def set_input_video(self, input_video_path:str, focal_length:int = 35):
+    def set_input_video(self, input_video_path:str):
         '''If the raspberry pi shouldn't be used and the input should come from a video instead'''
         self.use_rpi = False
         self._test_existance([input_video_path])
@@ -101,6 +107,7 @@ class FrameGrabber:
         self.use_rpi = parameters.use_rpi
         self.running = True
         self.index = 0
+        self.max_frames = parameters.rpi_camera_max_frames
 
         if self.use_rpi:
             self.camera = Picamera2()
@@ -124,12 +131,9 @@ class FrameGrabber:
 
     def get_frame(self):
         self.index += 1
-        # print(f'{self.index} - {self.video_info.total_frames}')
         if self.use_rpi:
             frame = self.camera.capture_array()
-
-            #! Temporary code to stop capturing:
-            if self.index == 500:
+            if self.index == self.max_frames: # stop capture when a certain frame is reached.
                 return True
         else:
             if self.index == self.video_info.total_frames:
@@ -255,9 +259,9 @@ class DetectionManager:
         '''Runs through a loop taking the frame, running it through the ai, getting the detections, tracking them, updating distance and checking for danger'''
         self.vehicle_detected = False
 
-        #* Get frame
+        # fps stuff
         self.frame_number_handler.update_frame()
-        # displayer.start_timer()
+        #* Get frame
         frame=self.framegrabber.get_frame()
         if isinstance(frame, bool):
             return 1 # If last frame is reached

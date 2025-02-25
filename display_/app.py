@@ -17,8 +17,8 @@ class WebServer:
             "time": "00:00",
             "d_front": '-',
             "d_close": '-',
-            "num_now": '-',
-            'status':0
+            "num_now": 3,
+            "extra": ""
         }
         self.running = False  # Track whether updates should run
         

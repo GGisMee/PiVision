@@ -23,17 +23,16 @@ class MainManager:
     
     def start_process(self):
         '''Starts the entire program from button press'''
-        # self.detection_manager.start_process()    
+        # self.detection_manager.start_process()
         self.server.set_start()
         self.running = True
-        self.process_thread = threading.Thread(target=self.run, daemon=True)
+        self.process_thread = threading.Thread(target=self.run)
         self.process_thread.start()
 
-        self.run()
+        # self.run()
     def stop_process(self):
         '''Stops the entire program from button press'''
         # self.detection_manager.stop_process()
-        self.server.set_stop()
         self.running = False
         if self.process_thread.is_alive():
             self.process_thread.join()  # Ensure the thread stops cleanly
@@ -43,19 +42,23 @@ class MainManager:
             self.detection_manager.run_process()
             # vehicle
             if self.detection_manager.vehicle_detected:
-                num_now = self.num_detections
-                d_front = self.detection_manager.front_dist
-                d_close = self.detection_manager.closest_distance
+                num_now = self.detection_manager.num_detections
+                status = self.detection_manager.crash_status
+                d_front = round(self.detection_manager.front_dist,2)
+                d_close = round(self.detection_manager.closest_distance,2)
 
             else:
-                num_now = '-'
-                d_front = '-'
-                d_close = '-'
+                continue
             self.server.update_data(
                 num_now=num_now,
                 d_front=d_front,
                 d_close=d_close,
+                warning_status=status
             )
+        else:
+            # When the loop it run through after stop is pressed
+            self.server.set_stop()
+
 
 if __name__ == "__main__":
     print('Running from MainManager')

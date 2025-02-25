@@ -31,7 +31,7 @@ class DistanceEstimator:
         self.class_names = class_names
 
         self.FOCAL_LENGTH = 248 # In pixels!
-        self.list_length_cap = 20 # how many datapoints to store in the time distance lists..
+        self.list_length_cap = parameters.datapoint_cap
         self.min_length_datapoints = 10
         self.start_time = None
 
@@ -149,7 +149,7 @@ class DistanceEstimator:
                 continue
             dx = self.data[tracker_id]['dx'][-1]
             dy = self.data[tracker_id]['dy'][-1]
-            if (dx < min_derivative * dy) and dx<closest_front_distance:
+            if (abs(dx) < min_derivative * dy) and dx<closest_front_distance:
                 closest_front_distance = dy
         return closest_front_distance
 
@@ -163,8 +163,16 @@ class DistanceEstimator:
         return closest_d
 
     def get_crash_status(self):
-        '''To get the crash status'''
+        '''Depending on the time until crash a status is returned, which is a value between 0 and 9,
+        where 0 is the safest'''
         min_time, min_id, latest_d = self.check_crash()
+        if min_time >= 3:
+            return 0
+        status = round(min_time*3)
+        status = 9 if status > 9 else status
+        
+        return status
+        
         
 
 def derive(y):
