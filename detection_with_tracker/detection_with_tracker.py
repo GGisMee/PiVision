@@ -49,6 +49,9 @@ class Parameters:
         self.save_frame_debug = False
         self.max_fps = np.inf
 
+        self.rpi_camera_max_frames = np.inf
+        self.datapoint_cap = 20
+
 
     def _test_existance(self,paths:list[str]):
         '''Tests paths if they exist'''
@@ -385,14 +388,17 @@ class DetectionManager:
             confidence=detections["confidence"],
             class_id=detections["class_id"]
         )
+        '''Some processing steps which takes the detections and uses them.'''
 
         #* Update detections with tracking information
         sv_detections = self.tracker.update_with_detections(sv_detections)
 
+        # adds the detections to a data dictionary to keep track of useful detections
         self.distance_estimator.add_detection(sv_detections)
-        self.crash_status = self.distance_estimator.get_crash_status()
-        self.front_dist = self.distance_estimator.get_front_dist()
-        self.closest_distance = self.distance_estimator.get_closest_dist()
+
+        # gets data which will then be displayed on the website
+        self.closest_front_distance, self.closest_d, self.crash_status = self.distance_estimator.dataloop()
+
         return sv_detections
         
     def _annotate_frame(self,frame: np.ndarray,sv_detections:sv.Detections) -> np.ndarray:

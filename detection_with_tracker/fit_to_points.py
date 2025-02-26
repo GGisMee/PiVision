@@ -92,41 +92,21 @@ class PolyFitting:
         else:
             raise ValueError("Invalid mode. Choose between 'linear' and 'exponential'")
 
-    def fit(self, d:deque, t:deque):
-        '''Fits the plot to the points.'''
+    def get_regression_model(self, d:deque, t:deque) -> np.ndarray[np.float64]:
+        '''Fits the plot to the points.
+        
+        Returns the coefficients for the plot, which is a polynomial'''
         # Here we use w=self.weight_function(), since it has already been specified, we just run it
         weights = self.weight_function(t)
         coeff = np.polyfit(t, d, self.degree, w=weights)
         return coeff
 
-    def update(self, data_for_car:dict, t_boundries: list[float] = [0.1,5]):
-        '''Updates the s (distance) and t (time) lists'''
-
-        t = data_for_car['t']
-        dx = data_for_car['dx']
-        dy = data_for_car['dy']
-
-        # fits the new updated data to a function
-        side_coeff = self.fit(dx,t)
-        forward_coeff = self.fit(dy,t)
-
-        # adds time from last datapoint
-        t_boundries = [max(t)+t_boundries[0], max(t)+t_boundries[1]]
-
-        coming_time:np.ndarray = np.linspace(t_boundries[0], t_boundries[1], num = 10)
-        coming_distance_x:np.ndarray[float] = np.polyval(side_coeff, coming_time)
-        coming_distance_y:np.ndarray[float] = np.polyval(forward_coeff, coming_time)
+    def get_values_from_model(self, coeffs, t:deque):
+        '''Returns point from plot and value'''
+        d:np.ndarray[float] = np.polyval(coeffs, t)
+        return d
 
 
-        
-        self.view(dy=dy, 
-                  dx=dx, 
-                  t=t, 
-                  coming_t=coming_time, 
-                  coming_d_x=coming_distance_x, 
-                  coming_d_y=coming_distance_y)
-        
-        return coming_distance_x, coming_distance_y, coming_time, side_coeff, forward_coeff
 
 
     def view(self, dy:np.ndarray,dx:np.ndarray,t:np.ndarray, coming_t:np.ndarray, coming_d_x:np.ndarray, coming_d_y:np.ndarray):
@@ -151,8 +131,7 @@ class PolyFitting:
 
 if __name__ == '__main__':
     'Example of how it might look'
-    poly_fitter = PolyFitting(degree=1,weight_function_info={'scale_factor': 30, 'mode':'exponential', 'min_weight':0.1, 'decay_rate':100, 'max_weight':1},saving = True, viewing=False)
+    # poly_fitter = PolyFitting(degree=1,weight_function_info={'scale_factor': 30, 'mode':'exponential', 'min_weight':0.1, 'decay_rate':100, 'max_weight':1},saving = True, viewing=False)
     #s,t = Dataset.give_data(1)
-    data = UpdatedData.data
-    poly_fitter.update(data[1])
-    open_image_in_vscode('output/distance.png')
+    # data = UpdatedData.data
+    # open_image_in_vscode('output/distance.png')

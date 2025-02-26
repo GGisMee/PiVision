@@ -44,8 +44,8 @@ class MainManager:
             if self.detection_manager.vehicle_detected:
                 num_now = self.detection_manager.num_detections
                 status = self.detection_manager.crash_status
-                d_front = round(self.detection_manager.front_dist,2)
-                d_close = round(self.detection_manager.closest_distance,2)
+                d_front = round(self.detection_manager.closest_front_distance,2)
+                d_close = round(self.detection_manager.closest_d,2)
 
             else:
                 continue

@@ -114,67 +114,128 @@ class DistanceEstimator:
             labels.append(label)
         return labels
     
-    def check_crash(self):
-        min_time = np.inf
-        min_id = None
-        latest_d = None
+    def _check_crash(self,x_coeffs:np.ndarray,y_coeffs:np.ndarray,  min_time:float, highest_time:float):
+        '''Checks if a crash is coming and the time until this crash happens. Run through self.dataloop
+        
+        Input:
+            x_coeffs = A list of coefficients for a regression created polynomial. For the x values
+            y_coeffs = A list of coefficients for a regression created polynomial. For the y values
+            min_time = time value until crash. Will get updated through this function
+            highest_time = The latest time datapoint. Useful to determine where the new test datapoints should start.
 
-        for tracker_id in self.data.keys():
-            if len(self.data[tracker_id]['t'])<self.min_length_datapoints:
-                continue
-            come_dx, come_dy, come_t, side_coeff, forward_coeff = self.poly_fitter.update(self.data[tracker_id])
+        Returns:
+            new_min_time: lowest time until crash. 
+            x_coeffs: coefficients of the regression model for the x values
+            y_coeffs: coefficients of the regression model for the y values
+            '''
+        
+        t_boundry_scope: list[float] = [0.1,5]
+        t_boundries = [highest_time+t_boundry_scope[0], highest_time+t_boundry_scope[1]]
 
-            x_hit_interval = [-0.9, 0.9]
-            y_hit_interval = [-2.3, 2.3]
-            hit_check_x = (x_hit_interval[0] < come_dx) & (come_dx< x_hit_interval[1])
-            hit_check_y = (y_hit_interval[0] < come_dy) & (come_dy< y_hit_interval[1])
+        come_t:np.ndarray = np.linspace(t_boundries[0], t_boundries[1], num = 10)
+        come_dx:np.ndarray[float] = np.polyval(x_coeffs, come_t)
+        come_dy:np.ndarray[float] = np.polyval(y_coeffs, come_t)
 
+        # The interval where its in the car. By this I say that the car is 1.8 m in width and 4.6 m in length.
+        x_hit_interval = [-0.9, 0.9] 
+        y_hit_interval = [-2.3, 2.3]
 
-            in_car = np.bitwise_and(hit_check_x, hit_check_y)
-            if np.any(in_car):
-                times_until_in_car = come_t[in_car]
-                time_until_in_car = np.min(times_until_in_car)
-                if time_until_in_car < min_time:
-                    min_time = np.min(time_until_in_car)
-                    latest_d = self.data[tracker_id]['d'][-1]
-                    min_id = tracker_id
-            
-        return min_time, min_id, latest_d
+        hit_check_x = (x_hit_interval[0] < come_dx) & (come_dx< x_hit_interval[1])
+        hit_check_y = (y_hit_interval[0] < come_dy) & (come_dy< y_hit_interval[1])
 
-    def get_front_dist(self):
-        '''To get the distance to the car in front of you'''
-        min_derivative = 1/8 # Om den befinner sig inom en där dx < min_derivative * dy
+        in_car = np.bitwise_and(hit_check_x, hit_check_y)
+        if not np.any(in_car): # if it is not going to get into the car, then don't care about it.
+            return None
+
+        times_until_in_car = come_t[in_car] # gets the timepoints when its in the car.
+        time_until_in_car = np.min(times_until_in_car) # takes out the lowest value
+        if time_until_in_car < min_time: # if smaller
+            new_min_time = np.min(time_until_in_car)    
+            return new_min_time
+        # If the new value for crash is higher then the last.
+        return None
+        
+
+    def dataloop(self):
+        '''A loop which calculates all the different data which will then be displayed'''
+        
         closest_front_distance = np.inf
-        for tracker_id in self.data.keys():
-            if len(self.data[tracker_id]['t'])<self.min_length_datapoints:
-                continue
-            dx = self.data[tracker_id]['dx'][-1]
-            dy = self.data[tracker_id]['dy'][-1]
-            if (abs(dx) < min_derivative * dy) and dx<closest_front_distance:
-                closest_front_distance = dy
-        return closest_front_distance
-
-    def get_closest_dist(self):
-        '''To get the distance to the car closest to you'''
         closest_d = np.inf
-        for tracker_id in self.data.keys():        
-            closest_d_id = self.data[tracker_id]['d'][-1]
-            if closest_d > closest_d_id:
-                closest_d = closest_d_id
-        return closest_d
+        min_time = np.inf
+        self.vector_data = {}
 
-    def get_crash_status(self):
+        for tracker_id in self.data.keys():
+            t = self.data[tracker_id]['t']
+            dy = self.data[tracker_id]['dy']
+            dx = self.data[tracker_id]['dx']
+
+            if closest_front_distance_new_maybe := self._get_front_dist(tracker_id, closest_front_distance):
+                closest_front_distance = closest_front_distance_new_maybe
+
+            if closest_d_new := self._get_closest_dist(tracker_id, closest_d):
+                closest_d = closest_d_new
+
+            if len(t) < 20: # a cap to ensure that the fitted regression won't be inaccurate
+                self.vector_data[tracker_id] = (None, None)
+                continue
+
+            # Gets the coefficiants for polynomial model from the data which already exists
+            x_coeffs:np.ndarray = self.poly_fitter.get_regression_model(dx, t)
+            y_coeffs:np.ndarray = self.poly_fitter.get_regression_model(dy, t)
+
+            # Computes vectors where the cars might go next.
+            v, angle = self.get_coming_vector(t[-1], dx[-1], dy[-1], x_coeffs, y_coeffs)
+            self.vector_data[tracker_id] = (v, angle)
+
+
+            new_min_time = self._check_crash(x_coeffs, y_coeffs, min_time=min_time, highest_time=max(t))
+            if new_min_time:
+                min_time = new_min_time
+
+
+        
+        status = self._get_crash_status(min_time)
+
+        return closest_front_distance, closest_d, status
+            
+    def get_coming_vector(self, latest_t, latest_dx, latest_dy, coeffs_x, coeffs_y):
+        new_t = latest_t + 1
+        new_x = self.poly_fitter.get_values_from_model(coeffs_x, [new_t])[0]
+        new_y = self.poly_fitter.get_values_from_model(coeffs_y, [new_t])[0]
+
+        vx = new_x-latest_dx
+        vy = new_y-latest_dy
+        angle = np.arctan2(vx, vy)
+        v = np.sqrt(vx**2+vy**2)
+        return v, angle
+
+    def _get_front_dist(self, tracker_id, closest_front_distance):
+        '''To get the distance to the car in front of you'''
+        min_derivative = 1/8 # If it exists within a triangle in front of the car. This adds a bit of extra allowance for what is actually in front
+            # stop för att se till att allt för nya bilar inte registreras
+        if len(self.data[tracker_id]['t'])<self.min_length_datapoints:
+            return None
+        dx = self.data[tracker_id]['dx'][-1]
+        dy = self.data[tracker_id]['dy'][-1]
+        if (abs(dx) < min_derivative * dy) and dx<closest_front_distance:
+            return dy
+
+    def _get_closest_dist(self, tracker_id, closest_d):
+        '''To get the distance to the car closest to you'''     
+        closest_d_for_id = self.data[tracker_id]['d'][-1]
+        if closest_d > closest_d_for_id:
+            return closest_d_for_id
+
+    def _get_crash_status(self, min_time):
         '''Depending on the time until crash a status is returned, which is a value between 0 and 9,
         where 0 is the safest'''
-        min_time, min_id, latest_d = self.check_crash()
         if min_time >= 3:
             return 0
         status = round(min_time*3)
         status = 9 if status > 9 else status
-        
         return status
     
-    def get_datapoints(self):
+    def _get_datapoints(self):
         '''Returns current datapoints, along with vector showing direction'''
         datapoints = []
         for tracker_id in self.data.keys():
@@ -184,49 +245,6 @@ class DistanceEstimator:
             vy:float
             datapoints.append([dx,dy,vx,vy])
 
-def derive(y):
-    return np.insert((y[1:]-y[:-1]),0,0)
-    
-def viewData(distance:np.ndarray, speed: np.ndarray, acceleration:np.ndarray):
-    plt.yticks(np.arange(-1,7,0.2))
-    plt.axhline(0, color='gray', linestyle='--', linewidth=0.5)
-    plt.plot(distance, color = 'red')
-    plt.plot(speed, color = 'blue')
-    plt.plot(acceleration, color = 'green')
-    plt.show()
-
-def getDistance(xyxys:dict):
-    distData = {}
-    W_actual:float = 1.8
-    focal:int=248
-    for id in xyxys.keys():
-        #print(f'ID: {id}')
-        for xyxy in xyxys[id]:
-            W_pixels = abs(xyxy[0]-xyxy[2])
-            Distance = (W_actual*focal)/W_pixels
-
-            if id not in distData:
-                distData[id] = [Distance]
-            else:
-                distData[id].append(Distance)
-        distData[id] = np.array(distData[id])
-    return distData
-
-def get_speed_and_acceleration(distData:dict):
-    speedData = {}
-    accData = {}
-    for id in distData.keys():
-        speed = derive(distData[id])
-        acceleration = derive(speed)
-        if id not in speedData:
-                speedData[id] = speed
-        else:
-            speedData[id].append(speed)
-        if id not in accData:
-                accData[id] = acceleration
-        else:
-            accData[id].append(acceleration)
-    return speedData, accData
     
 if __name__ == '__main__':
     pass
