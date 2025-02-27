@@ -12,48 +12,49 @@
         var socket = io();
         var canvas = document.getElementById("canvas");
         var ctx = canvas.getContext("2d");
+        var points = {};
+        var animationSpeed = 0.1;
 
         function drawCar(x, y, dx, dy) {
-            let angle = Math.atan2(dy, dx);
-            let carWidth = 20;
-            let carHeight = 40;
-            
             ctx.save();
             ctx.translate(x, y);
-            
-            // Draw car body (black color)
             ctx.fillStyle = "black";
-            ctx.fillRect(-carWidth / 2, -carHeight / 2, carWidth, carHeight);
-                        
+            ctx.fillRect(-10, -20, 20, 40);
             ctx.restore();
         }
 
         function drawArrow(x, y, dx, dy) {
-            let angle = Math.atan2(dy, dx);
-            
             ctx.beginPath();
             ctx.moveTo(x, y);
             ctx.lineTo(x + dx, y + dy);
             ctx.strokeStyle = "red";
             ctx.lineWidth = 2;
             ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(x + dx, y + dy);
-            ctx.lineTo(x + dx - 5 * Math.cos(angle - Math.PI / 6), y + dy - 5 * Math.sin(angle - Math.PI / 6));
-            ctx.lineTo(x + dx - 5 * Math.cos(angle + Math.PI / 6), y + dy - 5 * Math.sin(angle + Math.PI / 6));
-            ctx.lineTo(x + dx, y + dy);
-            ctx.fillStyle = "red";
-            ctx.fill();
         }
 
-        socket.on("new_points", function(points) {
+        function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            points.forEach(({x, y, dx, dy}) => {
-                drawCar(x, y, dx, dy);
-                drawArrow(x, y, dx, dy);
+            Object.values(points).forEach(point => {
+                point.x += (point.targetX - point.x) * animationSpeed;
+                point.y += (point.targetY - point.y) * animationSpeed;
+                drawCar(point.x, point.y, point.dx, point.dy);
+                drawArrow(point.x, point.y, point.dx, point.dy);
+            });
+            requestAnimationFrame(animate);
+        }
+
+        socket.on("update_points", function(updatedPoints) {
+            updatedPoints.forEach(({id, x, y, dx, dy}) => {
+                if (!points[id]) {
+                    points[id] = { x, y, dx, dy, targetX: x, targetY: y };
+                } else {
+                    points[id].targetX = x;
+                    points[id].targetY = y;
+                }
             });
         });
+
+        animate();
     </script>
 </body>
 </html>

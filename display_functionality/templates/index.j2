@@ -108,6 +108,7 @@
             display: flex; 
             flex-direction: column; 
             gap: 10px; 
+            height: 100%;
 
         }
         .side {
@@ -223,10 +224,15 @@
             display: flex;
             gap: 5px;
             width:100%;
+            height: 100%;
+            justify-content: space-between;
         }
         .indicator {
-            width: 30px;
-            height: 30px;
+            flex: 1;
+            height: 100%;
+            padding: 15px;
+            aspect-ratio: 1;
+            margin:2px;
             border-radius: 10px;
             background-color: rgb(111, 111, 111);
         }
@@ -256,14 +262,18 @@
             </div>
             
         </div>
-        <div class="column middle">
+        <div class="column indication_col">
             <div class="box">
-                <i class="fa-solid fa-triangle-exclamation"></i>
             
-                <div class="indication_boxes">
                     {% for i in range(9) %}
                         <div class="indicator" id="box{{ i }}"></div>
                     {% endfor %}
+                </div>
+            </div>
+        <div class="column middle">
+            <div class="box">
+            
+                <div class="indication_boxes">
                 </div>
             </div>
             

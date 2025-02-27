@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Style</title>
+</head>
+<body>
+    <canvas id="canvas" width="600" height="400" style="border:1px solid #000;"></canvas>
+    <script>
+        var canvas = document.getElementById("canvas");
+        var ctx = canvas.getContext("2d");
+
+        function drawCar(x, y, color) {
+
+            ctx.save();
+            ctx.translate(x, y);
+            
+            // drawWheel(-25, -32);
+            // drawWheel(23, -32);
+            // drawWheel(-23, 32);
+            // drawWheel(23, 32);
+
+            // Car body with rounded corners
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.roundRect(-25, -50, 50, 100, 10);
+            ctx.fill();
+            
+            // Windows
+            ctx.fillStyle = "lightblue";
+            ctx.beginPath();
+            ctx.roundRect(-18, -40, 36, 20, 5);
+            ctx.fill();
+
+
+            // Wheels with oval shape
+            function drawWheel(cx, cy) {
+                ctx.fillStyle = "black";
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, 6, 12, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = "gray";
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, 4, 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            
+            
+        }
+
+        drawCar(300, 200, "lightgray");
+    </script>
+</body>
+</html>
