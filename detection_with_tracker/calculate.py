@@ -12,8 +12,8 @@ if TYPE_CHECKING:
     from detection_with_tracker.detection_with_tracker import Parameters  
 
 
-class DistanceEstimator:
-    ID_TO_HEIGHTS = {2: 1.5, 5: 3, 7:2} # pairs up class_id:s to vehicles height.
+class CrashCalculater:
+    ID_TO_HEIGHTS = {2: 1.5, 5: 3, 7:3} # pairs up class_id:s to vehicles height.
     def __init__(self, parameters:'Parameters', class_names:list, wh:tuple[int]):
         '''A class to encapsule the distance estimation process
         
@@ -155,7 +155,6 @@ class DistanceEstimator:
         # If the new value for crash is higher then the last.
         return None
         
-
     def dataloop(self):
         '''A loop which calculates all the different data which will then be displayed'''
         
@@ -245,6 +244,7 @@ class DistanceEstimator:
             vy:float
             datapoints.append([dx,dy,vx,vy])
 
-    
+
+
 if __name__ == '__main__':
     pass

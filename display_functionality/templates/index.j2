@@ -8,25 +8,25 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
         var socket = io();
-        
-        // Listen for updates from the server
+
+        // Lyssna efter uppdateringar från servern
         socket.on('update', function(data) {
             document.getElementById("d_front").innerText = data["d_front"];
             document.getElementById("time").innerText = data["time"];
             document.getElementById("num_now").innerText = data["num_now"];
             document.getElementById("d_close").innerText = data["d_close"];
             updateStatus(data.status);
-            console.log('Data recieved', data);
+            console.log('Data received', data);
         });
 
         socket.on('log', function(text) {
             console.log(text);
         });
 
-        // Listen for battery status updates
+        // Lyssna efter batteristatus
         socket.on('battery_update', function(data) {
             var batteryIcon = document.getElementById("batteryIcon");
-            console.log("Battery data recieved ", data.level);
+            console.log("Battery data received ", data.level);
 
             if (data.level > 75) {
                 batteryIcon.classList.add("fa-battery-full");
@@ -44,15 +44,14 @@
         });
 
         function updateStatus(status) {
-            // Loop through all the indicator boxes
             let color;
             if (status <= 3) {
-                    color = '#90ee90'
-                } else if (status <= 6) {
-                    color = '#f5f575'; 
-                } else {
-                    color = '#ff5252';
-                }
+                color = '#90ee90';
+            } else if (status <= 6) {
+                color = '#f5f575';
+            } else {
+                color = '#ff5252';
+            }
             document.querySelectorAll('.indicator').forEach((box, index) => {
                 box.classList.toggle('active', index < status);
             });
@@ -66,25 +65,38 @@
                 button.setAttribute("data-state", "stop");
                 button.innerText = "Stop";
                 button.style.backgroundColor = "lightcoral";
-                sendStateToServer("start");
+            socket.emit("toggle", { action: "start" });
+
             } else {
                 button.setAttribute("data-state", "start");
                 button.innerText = "Start";
                 button.style.backgroundColor = "lightgreen";
-                sendStateToServer("stop");
+            socket.emit("toggle", { action: "stop" });
+
             }
         }
 
-        function sendStateToServer(state) {
-            fetch('/toggle', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ action: state })
-            });
+
+        // Sends the size of the div to the server
+        function sendDivArea() {
+            var div = document.getElementById("car_content");
+            if (!div) return;
+
+            var width = div.offsetWidth;
+            var height = div.offsetHeight;
+
+            console.log("Width: " + width + " Height: " + height);
+            // Skicka till servern med Socket.IO
+            socket.emit("div_area", { width: width, height: height });
         }
+
+        // Kör vid fönsterstorleksändring
+        window.addEventListener("resize", sendDivArea);
+
+        // Kör direkt vid sidans laddning
+        window.onload = sendDivArea;
     </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@100..900&display=swap" rel="stylesheet">
@@ -218,17 +230,7 @@
             justify-content: center;
         }
 
-
-        /*Indication info*/
-        .indication_boxes {
-            display: flex;
-            gap: 5px;
-            width:100%;
-            height: 100%;
-            justify-content: space-between;
-        }
         .indicator {
-            flex: 1;
             height: 100%;
             padding: 15px;
             aspect-ratio: 1;
@@ -262,8 +264,8 @@
             </div>
             
         </div>
-        <div class="column indication_col">
-            <div class="box">
+        <div class="column">
+            <div class="box" id="ind_box">
             
                     {% for i in range(9) %}
                         <div class="indicator" id="box{{ i }}"></div>
@@ -271,10 +273,9 @@
                 </div>
             </div>
         <div class="column middle">
-            <div class="box">
+            <div class="box" id="car_content">
             
-                <div class="indication_boxes">
-                </div>
+
             </div>
             
         </div>

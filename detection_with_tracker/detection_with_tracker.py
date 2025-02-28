@@ -17,7 +17,7 @@ from rich.text import Text
 import psutil
 from collections import deque
 
-from detection_with_tracker.calculate import DistanceEstimator
+from detection_with_tracker.calculate import CrashCalculater
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -253,7 +253,7 @@ class DetectionManager:
         self.framegrabber = FrameGrabber(self.parameters)
         self.frame_w, self.frame_h = self.framegrabber.get_wh_set_generator()
 
-        self.distance_estimator = DistanceEstimator(self.parameters, self.class_names, (self.frame_w, self.frame_h))
+        self.distance_estimator = CrashCalculater(self.parameters, self.class_names, (self.frame_w, self.frame_h))
         self.displayer = Displayer(self.parameters)
         self.frame_number_handler = FrameNumberHandler(self.parameters.max_fps)
 
@@ -267,7 +267,7 @@ class DetectionManager:
         #* Get frame
         frame=self.framegrabber.get_frame()
         if isinstance(frame, bool):
-            return 1 # If last frame is reached
+            return True # If last frame is reached
         
         # Preprocess the frame
         preprocessed_frame: np.ndarray = self._preprocess_frame(frame)
@@ -315,6 +315,7 @@ class DetectionManager:
             #* Displays the frame
             if not self.displayer.display_frame(annotated_labeled_frame):
                 return 1 # if q is pressed in the displayer
+        return False
     
     def _preprocess_frame(self, frame: np.ndarray) -> np.ndarray:
         """Preprocess the frame to match the model's input size."""

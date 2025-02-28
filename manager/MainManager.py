@@ -39,7 +39,9 @@ class MainManager:
 
     def run(self):
         while self.running:
-            self.detection_manager.run_process()
+            if self.detection_manager.run_process():
+                break # Either if the loop is finished running through or if it closed in some way 
+            
             # vehicle
             if self.detection_manager.vehicle_detected:
                 num_now = self.detection_manager.num_detections
