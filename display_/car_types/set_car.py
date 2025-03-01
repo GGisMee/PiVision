@@ -9,10 +9,3 @@ def get_area_in_pixels(area_p:list[int], forward_length_m:int):
             7:(np.array([2.4,16])*ratio_p_div_m).round()
         }
         return ID_to_area_p
-
-
-
-
-
-
-        

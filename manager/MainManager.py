@@ -48,6 +48,8 @@ class MainManager:
                 status = self.detection_manager.crash_status
                 d_front = round(self.detection_manager.closest_front_distance,2)
                 d_close = round(self.detection_manager.closest_d,2)
+                latest_data = self.detection_manager.latest_data
+                
 
             else:
                 continue
@@ -55,6 +57,7 @@ class MainManager:
                 num_now=num_now,
                 d_front=d_front,
                 d_close=d_close,
+                latest_data=latest_data,
                 warning_status=status
             )
         else:

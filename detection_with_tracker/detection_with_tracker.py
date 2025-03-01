@@ -398,7 +398,7 @@ class DetectionManager:
         self.distance_estimator.add_detection(sv_detections)
 
         # gets data which will then be displayed on the website
-        self.closest_front_distance, self.closest_d, self.crash_status = self.distance_estimator.dataloop()
+        self.closest_front_distance, self.closest_d, self.crash_status, self.latest_data = self.distance_estimator.dataloop()
 
         return sv_detections
         

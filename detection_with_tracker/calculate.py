@@ -161,12 +161,13 @@ class CrashCalculater:
         closest_front_distance = np.inf
         closest_d = np.inf
         min_time = np.inf
-        self.vector_data = {}
+        latest_data = [] # a dataset for the display of the vehicles. Includes coming position in one second and the current position
+        # [id, dx,dy,vx,vy]
 
         for tracker_id in self.data.keys():
-            t = self.data[tracker_id]['t']
-            dy = self.data[tracker_id]['dy']
-            dx = self.data[tracker_id]['dx']
+            t = np.array(self.data[tracker_id]['t'])
+            dy = np.array(self.data[tracker_id]['dy'])
+            dx = np.array(self.data[tracker_id]['dx'])
 
             if closest_front_distance_new_maybe := self._get_front_dist(tracker_id, closest_front_distance):
                 closest_front_distance = closest_front_distance_new_maybe
@@ -183,9 +184,8 @@ class CrashCalculater:
             y_coeffs:np.ndarray = self.poly_fitter.get_regression_model(dy, t)
 
             # Computes vectors where the cars might go next.
-            v, angle = self.get_coming_vector(t[-1], dx[-1], dy[-1], x_coeffs, y_coeffs)
-            self.vector_data[tracker_id] = (v, angle)
-
+            vx, vy = self.get_coming_vector(t[-1], dx[-1], dy[-1], x_coeffs, y_coeffs)
+            latest_data.append(dx[-1], dy[-1], vx,vy)
 
             new_min_time = self._check_crash(x_coeffs, y_coeffs, min_time=min_time, highest_time=max(t))
             if new_min_time:
@@ -195,7 +195,7 @@ class CrashCalculater:
         
         status = self._get_crash_status(min_time)
 
-        return closest_front_distance, closest_d, status
+        return closest_front_distance, closest_d, status, latest_data
             
     def get_coming_vector(self, latest_t, latest_dx, latest_dy, coeffs_x, coeffs_y):
         new_t = latest_t + 1
@@ -204,9 +204,7 @@ class CrashCalculater:
 
         vx = new_x-latest_dx
         vy = new_y-latest_dy
-        angle = np.arctan2(vx, vy)
-        v = np.sqrt(vx**2+vy**2)
-        return v, angle
+        return (vx,vy)
 
     def _get_front_dist(self, tracker_id, closest_front_distance):
         '''To get the distance to the car in front of you'''
