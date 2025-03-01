@@ -50,6 +50,9 @@ class MainManager:
                 d_close = round(self.detection_manager.closest_d,2)
                 latest_data = self.detection_manager.latest_data
                 
+                
+                ID_to_color = self.detection_manager.distance_estimator.ID_to_color
+                
 
             else:
                 continue

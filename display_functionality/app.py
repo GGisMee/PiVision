@@ -1,8 +1,9 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, jsonify
 from flask_socketio import SocketIO
 import time
 import logging
 import numpy as np
+import random
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -36,6 +37,19 @@ class WebServer:
 
         self.ratio_p_div_m:float = None
 
+        self.ID_to_color = {1:[122,122,122], 2:[14,160,2], 4:[255,0,3]}
+
+        self.points = []
+        for i in range(5):
+            self.points.append({
+                "id": i,
+                "x": random.randint(50, 450),
+                "y": random.randint(50, 450),
+                "dx": random.uniform(-5, 5),
+                "dy": random.uniform(-5, 5)
+            })
+
+
         @self.app.route("/")
         def index():
             return render_template("index.j2", data=self.current_data)
@@ -63,6 +77,35 @@ class WebServer:
             height = data['height']
             self.ID_to_area_p, self.ratio_p_div_m = get_area_in_pixels((width,height), self.FORWARD_LEN)
 
+    # canvas functionality
+    def generate_points(self):
+        i = 0
+        while True:
+            i+=1
+            if i % 10 == 0:
+                # self.points.pop()
+
+                self.points.append({
+                "id": len(self.points),
+                "x": random.randint(50, 450),
+                "y": random.randint(50, 450),
+                "dx": random.uniform(-5, 5),
+                "dy": random.uniform(-5, 5)
+            })
+            for point in self.points:
+                point["x"] += np.random.uniform(-45, 45)
+                point["y"] += np.random.uniform(-45, 45)
+                point["dx"] = random.uniform(-5, 5)
+                point["dy"] = random.uniform(-5, 5)
+            
+            self.socketio.emit("new_points", self.points)
+            time.sleep(1)  # Send updates every second
+
+    def handle_connect(self):
+        print("Client connected")
+
+
+    # other
     def log(self, msg: str, type: int = 0):
         log_types = ['INFO', 'WARNING', 'ERROR', 'CRITICAL', 'DEBUG']
         log_type = log_types[min(type, 4)]
@@ -80,19 +123,18 @@ class WebServer:
         return processed_data
 
 
-    def update_data(self, d_front: float, d_close: int, num_now: int,latest_data:np.ndarray, warning_status: int):
+    def update_data(self, d_front: float, d_close: int, num_now: int,latest_data:np.ndarray,ID_to_color:dict, warning_status: int):
         elapsed_seconds = time.time() - self.start_timestamp if self.start_timestamp else 0
         time_str = time.strftime("%H:%M:%S" if elapsed_seconds >= 3600 else "%M:%S", time.gmtime(elapsed_seconds))
-
+        self.ID_to_color = ID_to_color
         processed_data = self.process_data(latest_data)
-
         self.current_data.update({
             "time": time_str,
             "d_front": d_front,
             "num_now": num_now,
             "status": warning_status,
             "latest_data": processed_data,
-            "d_close": d_close
+            "d_close": d_close,
         })
         self.socketio.emit("update", self.current_data)
 
@@ -105,6 +147,8 @@ class WebServer:
         self.last_battery_check_timestamp = None
 
     def run(self, debug=False):
+        self.socketio.on_event('connect', self.handle_connect)
+        self.socketio.start_background_task(self.generate_points)
         self.socketio.run(self.app, debug=debug, host='0.0.0.0', port=5000)
 
 if __name__ == "__main__":

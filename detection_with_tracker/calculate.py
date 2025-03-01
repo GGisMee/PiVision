@@ -37,6 +37,8 @@ class CrashCalculater:
 
         self.vector_time = 1 # seconds from which the time vector is predicted from.
 
+        self.ID_to_color = {}
+
         self.save_coming_distance = parameters.save_coming_distance
         self.display_coming_distance = parameters.display_coming_distance
 
@@ -46,7 +48,7 @@ class CrashCalculater:
         self.frame_width = 640 # pixels in the aspect ratio which was converted to.
         self.distance_pixels = self.frame_width/(2*np.sin(self.camera_angle)) # Calculates the hypotinuse with trigonometry. More in calc_camera_values
 
-    def add_detection(self, detections: sv.Detections):
+    def add_detection(self, detections: sv.Detections, frame:np.ndarray):
         '''Adds the detections to the data dictionary, which is a dictionary keeping track of the distances and the time to each car.'''
         if not self.start_time:
             self.start_time = time.time()
@@ -67,11 +69,22 @@ class CrashCalculater:
                 # adds the class of the tracker_id
                 self.data_corresponding_class[tracker_id] = detections.class_id[i]
 
+                # adds the color for the newly seen car to dict ID_to_color
+                self._match_color(xyxy=detections.xyxy[i], frame=frame, tracker_id=tracker_id)
+
             # adds the new data to the tracker_id
             self.data[tracker_id]['d'].append(d)
             self.data[tracker_id]['dx'].append(dx)
             self.data[tracker_id]['dy'].append(dy)
             self.data[tracker_id]['t'].append(time.time()-self.start_time)
+        
+
+    def _match_color(self, xyxy:np.ndarray,frame:np.ndarray, tracker_id:int):
+        x1,y1,x2,y2 = xyxy.astype(np.int16)
+        roi = frame[y1:y2, x1:x2]
+        mean_color = np.mean(roi, axis = (0,1))
+        self.ID_to_color[tracker_id] = mean_color
+        
 
     def _get_distance(self, xyxy, class_id):
         '''Determines the distance to a vehicle.
@@ -176,7 +189,7 @@ class CrashCalculater:
                 closest_d = closest_d_new
 
             if len(t) < 20: # a cap to ensure that the fitted regression won't be inaccurate
-                self.vector_data[tracker_id] = (None, None)
+                latest_data.append([tracker_id, dx[-1], dy[-1], None, None])
                 continue
 
             # Gets the coefficiants for polynomial model from the data which already exists
@@ -185,7 +198,7 @@ class CrashCalculater:
 
             # Computes vectors where the cars might go next.
             vx, vy = self.get_coming_vector(t[-1], dx[-1], dy[-1], x_coeffs, y_coeffs)
-            latest_data.append(dx[-1], dy[-1], vx,vy)
+            latest_data.append([tracker_id, dx[-1], dy[-1], vx,vy])
 
             new_min_time = self._check_crash(x_coeffs, y_coeffs, min_time=min_time, highest_time=max(t))
             if new_min_time:

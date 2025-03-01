@@ -1,3 +1,3 @@
 Ok I would like you to take the functionality in the canvas in preparements/templates/index.html and put it within display_functionality/templates/index.j2:s div with id="car_content"
 
-I also would like you to merge the functionality from preparements/app.py to display_functionality/app.py. As such I want all the functionality to be ready and usable between app.py and index.html
+I also would like you to merge the functionality from preparements/app.py to display_functionality/app.py. As such I want all the functionality to be ready and usable between app.py and index.html1

@@ -7,10 +7,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
 <body>
-    <canvas id="canvas" width="500" height="500" style="border:1px solid #000;"></canvas>
+    <canvas id="carCanvas" width="500" height="500" style="border:1px solid #000;"></canvas>
     <script>
         const socket = io();
-        const canvas = document.getElementById("canvas");
+        const canvas = document.getElementById("carCanvas");
         const ctx = canvas.getContext("2d");
         let cars = [];
         let animationFrameId = null;

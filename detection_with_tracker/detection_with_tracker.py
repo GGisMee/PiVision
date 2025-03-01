@@ -302,7 +302,7 @@ class DetectionManager:
 
         self.vehicle_detected = True
         #* Postprocess the detections 
-        sv_detections = self._process_detections(detections=detections)
+        sv_detections = self._process_detections(detections=detections, frame=frame)
 
         # if (self.frame_number_handler.current_frame % 50) == 0:
         #     timetester.print_execution_times()
@@ -383,11 +383,11 @@ class DetectionManager:
             "num_detections": num_detections,
         }
 
-    def _process_detections(self, detections: Dict[str, np.ndarray],) -> np.ndarray:
+    def _process_detections(self, detections: Dict[str, np.ndarray],frame:np.ndarray) -> np.ndarray:
         sv_detections = sv.Detections(
             xyxy=detections["xyxy"],
             confidence=detections["confidence"],
-            class_id=detections["class_id"]
+            class_id=detections["class_id"],
         )
         '''Some processing steps which takes the detections and uses them.'''
 
@@ -395,7 +395,8 @@ class DetectionManager:
         sv_detections = self.tracker.update_with_detections(sv_detections)
 
         # adds the detections to a data dictionary to keep track of useful detections
-        self.distance_estimator.add_detection(sv_detections)
+        self.distance_estimator.add_detection(sv_detections, frame)
+
 
         # gets data which will then be displayed on the website
         self.closest_front_distance, self.closest_d, self.crash_status, self.latest_data = self.distance_estimator.dataloop()
