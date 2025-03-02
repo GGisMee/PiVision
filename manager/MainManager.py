@@ -3,6 +3,8 @@ from detection_with_tracker.detection_with_tracker import Parameters
 
 from display_functionality.app import WebServer
 
+import numpy as np
+
 import threading
 
 class MainManager:
@@ -48,7 +50,7 @@ class MainManager:
                 status = self.detection_manager.crash_status
                 d_front = round(self.detection_manager.closest_front_distance,2)
                 d_close = round(self.detection_manager.closest_d,2)
-                latest_data = self.detection_manager.latest_data
+                latest_data = np.array(self.detection_manager.latest_data)
                 
                 
                 ID_to_color = self.detection_manager.distance_estimator.ID_to_color
@@ -61,7 +63,8 @@ class MainManager:
                 d_front=d_front,
                 d_close=d_close,
                 latest_data=latest_data,
-                warning_status=status
+                warning_status=status,
+                ID_to_color = ID_to_color
             )
         else:
             # When the loop it run through after stop is pressed

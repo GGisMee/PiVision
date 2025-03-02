@@ -189,7 +189,7 @@ class CrashCalculater:
                 closest_d = closest_d_new
 
             if len(t) < 20: # a cap to ensure that the fitted regression won't be inaccurate
-                latest_data.append([tracker_id, dx[-1], dy[-1], None, None])
+                latest_data.append([tracker_id, dx[-1], dy[-1], 0, 0])
                 continue
 
             # Gets the coefficiants for polynomial model from the data which already exists

@@ -90,9 +90,11 @@ class WebServer:
                 "y": float(vehicle[2]),
                 "dx": float(vehicle[3]),
                 "dy": float(vehicle[4]),
-                "color": color
+                "color": list(color)
             })
         
+        print(vehicles)
+
         self.socketio.emit("vehicle_update", {"vehicles": vehicles})
 
     def handle_connect(self):
