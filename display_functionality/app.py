@@ -39,6 +39,11 @@ class WebServer:
         self.ratio_p_div_m = 1 #! fix later
         self.ID_to_color = {}
 
+        self.current_vehicle_ids = set()
+
+        self.width = None
+        self.height = None
+        
         @self.app.route("/")
         def index():
             return render_template("index.j2", data=self.current_data)
@@ -62,39 +67,37 @@ class WebServer:
 
         @self.socketio.on('div_area')
         def handle_div_area(data):
-            width = data['width']
-            height = data['height']
-            self.ID_to_area_p, self.ratio_p_div_m = get_area_in_pixels((width,height), self.FORWARD_LEN)
-            self.log(f"Canvas dimensions set: {width}x{height} pixels")
+            self.width = data['width']
+            self.height = data['height']
+            self.ID_to_area_p, self.ratio_p_div_m = get_area_in_pixels((self.width,self.height), self.FORWARD_LEN)
+            self.log(f"Canvas dimensions set: {self.width}x{self.height} pixels")
 
     def send_vehicle_data(self, processed_data):
         """
         Send vehicle data to the client.
-        
+
         Args:
             processed_data: Processed data array with [id, x, y, dx, dy] for each vehicle
         """
         if processed_data.size == 0:
-            # No vehicles to display
+            # No vehicles to display, clear all
+            self.current_vehicle_ids = set()
             self.socketio.emit("vehicle_update", {"vehicles": []})
             return
-            
+
         vehicles = []
         for vehicle in processed_data:
             vehicle_id = int(vehicle[0])
             color = self.ID_to_color.get(vehicle_id, "#CCCCCC")  # Default to gray if no color
-            
+
             vehicles.append({
                 "id": vehicle_id,
-                "x": float(vehicle[1]),
+                "x": float(vehicle[1])+self.width/2, # put it in the middle if 0
                 "y": float(vehicle[2]),
                 "dx": float(vehicle[3]),
                 "dy": float(vehicle[4]),
-                "color": list(color)
+                "color": color if isinstance(color, str) else f"rgb({color[0]}, {color[1]}, {color[2]})"
             })
-        
-        print(vehicles)
-
         self.socketio.emit("vehicle_update", {"vehicles": vehicles})
 
     def handle_connect(self):

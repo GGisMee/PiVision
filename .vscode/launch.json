@@ -1,10 +1,29 @@
 {
     "configurations": [
+
+
+        {
+            "name": "Python",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+
         {
             "name": "Python: Module",
             "type": "debugpy",
             "request": "launch",
             "module": "${relativeFileDirname}.${fileBasenameNoExtension}",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+
+        {
+            "name": "Python: MainManager",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "manager.MainManager",
             "console": "integratedTerminal",
             "justMyCode": false
         }

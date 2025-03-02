@@ -23,7 +23,7 @@ class CrashCalculater:
             wh: tuple[int] = Should be be a tuple of width and height of the picture.
             
         Created args:
-            self.data: dict = tracker_id : {'s':[distance1, distance2...], 't':[time1,time2,...]}
+            self.data: dict = tracker_id : {'s':[distance1, distance2...], 't':[time1,time2,...], 'last_seen_timestamp':time.time()}
             self.data_corresponding_class: dict = tracker_id : class_id'''
         self.data: dict = {}
         self.data_corresponding_class: dict = {}
@@ -36,6 +36,9 @@ class CrashCalculater:
         self.start_time = None
 
         self.vector_time = 1 # seconds from which the time vector is predicted from.
+
+        # the time until the car is forgotten. Reason is to ensure that the cars doesn't clip stuck on screen.
+        self.time_to_forget = 2 # seconds
 
         self.ID_to_color = {}
 
@@ -77,7 +80,15 @@ class CrashCalculater:
             self.data[tracker_id]['dx'].append(dx)
             self.data[tracker_id]['dy'].append(dy)
             self.data[tracker_id]['t'].append(time.time()-self.start_time)
-        
+        self._remove_old_trackers(detections)
+                
+    def _remove_old_trackers(self,detections):
+        old_tracker_ids = set(self.data.keys()).difference(detections.tracker_id)
+        for id in old_tracker_ids:
+            last_timestamp = self.data[id]['t'][-1]+self.start_time
+            if self.time_to_forget < time.time()-last_timestamp:
+                self.data.pop(id)
+                self.ID_to_color.pop(id)
 
     def _match_color(self, xyxy:np.ndarray,frame:np.ndarray, tracker_id:int):
         x1,y1,x2,y2 = xyxy.astype(np.int16)

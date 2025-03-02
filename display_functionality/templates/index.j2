@@ -185,19 +185,26 @@
         }
 
         // Process vehicle data from server
+        // Process vehicle data from server
         function processVehicleData(vehicleData) {
-            if (!vehicleData) return;
-            
-            const now = Date.now();
+            if (!vehicleData) {
+                // If we get empty data, clear all vehicles
+                vehicles = [];
+                if (!animationFrameId) {
+                    animateVehicles();
+                }
+                return;
+            }
+
             const vehicleIds = vehicleData.map(v => v.id);
-            
+
             // Remove vehicles that are no longer present
             vehicles = vehicles.filter(v => vehicleIds.includes(v.id));
-            
+
             // Update existing vehicles or create new ones
             vehicleData.forEach(data => {
                 const existingVehicle = vehicles.find(v => v.id === data.id);
-                
+
                 if (existingVehicle) {
                     // Update existing vehicle
                     existingVehicle.update(data.x, data.y, data.dx, data.dy, data.color);
@@ -211,9 +218,10 @@
                         data.dy, 
                         data.color
                     ));
+
                 }
             });
-            
+
             // Start animation if not already running
             if (!animationFrameId) {
                 animateVehicles();
@@ -229,7 +237,7 @@
             
             // Draw each vehicle
             let activeTweens = false;
-            
+            const vehicleIds = vehicles.map(vehicle => vehicle.id);
             for (const vehicle of vehicles) {
                 const elapsedTime = now - vehicle.animationStartTime;
                 const progress = Math.min(1, elapsedTime / ANIMATION_DURATION);
