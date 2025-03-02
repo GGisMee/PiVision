@@ -4,6 +4,7 @@ import time
 import logging
 import numpy as np
 import random
+import json
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -78,27 +79,21 @@ class WebServer:
             self.ID_to_area_p, self.ratio_p_div_m = get_area_in_pixels((width,height), self.FORWARD_LEN)
 
     # canvas functionality
-    def generate_points(self):
-        i = 0
-        while True:
-            i+=1
-            if i % 10 == 0:
-                # self.points.pop()
+    def send_points(self, latest_data:np.ndarray, ID_to_color):
+            '''
+            Input:
+                latest_data: [[id, dx[-1], dy[-1], vx,vy]]'''
 
+            for car in latest_data:
                 self.points.append({
-                "id": len(self.points),
-                "x": random.randint(50, 450),
-                "y": random.randint(50, 450),
-                "dx": random.uniform(-5, 5),
-                "dy": random.uniform(-5, 5)
-            })
-            for point in self.points:
-                point["x"] += np.random.uniform(-45, 45)
-                point["y"] += np.random.uniform(-45, 45)
-                point["dx"] = random.uniform(-5, 5)
-                point["dy"] = random.uniform(-5, 5)
+                "id": car[0],
+                "x": car[1],
+                "y": car[2],
+                "dx": car[3],
+                "dy": car[4]
+                })
             
-            self.socketio.emit("new_points", self.points)
+            self.socketio.emit("new_points", json.dumps(self.points))
             time.sleep(1)  # Send updates every second
 
     def handle_connect(self):
@@ -136,6 +131,7 @@ class WebServer:
             "latest_data": processed_data,
             "d_close": d_close,
         })
+        self.send_points(latest_data, ID_to_color)
         self.socketio.emit("update", self.current_data)
 
     def set_start(self):
@@ -148,7 +144,6 @@ class WebServer:
 
     def run(self, debug=False):
         self.socketio.on_event('connect', self.handle_connect)
-        self.socketio.start_background_task(self.generate_points)
         self.socketio.run(self.app, debug=debug, host='0.0.0.0', port=5000)
 
 if __name__ == "__main__":
