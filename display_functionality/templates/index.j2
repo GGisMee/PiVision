@@ -7,42 +7,250 @@
     <script src="https://kit.fontawesome.com/70c8e77483.js" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
-        var socket = io();
+        // SocketIO and Canvas setup
+        let socket;
+        let canvas;
+        let ctx;
+        let vehicles = [];
+        let animationFrameId = null;
+        const ANIMATION_DURATION = 1000; // 1 second between updates
 
-        // Lyssna efter uppdateringar från servern
-        socket.on('update', function(data) {
-            document.getElementById("d_front").innerText = data["d_front"];
-            document.getElementById("time").innerText = data["time"];
-            document.getElementById("num_now").innerText = data["num_now"];
-            document.getElementById("d_close").innerText = data["d_close"];
-            updateStatus(data.status);
-            console.log('Data received', data);
-        });
+        // Vehicle class for better object management
+        class Vehicle {
+            constructor(id, x, y, dx, dy, color) {
+                this.id = id;
+                this.startX = x;
+                this.startY = y;
+                this.targetX = x;
+                this.targetY = y;
+                this.dx = dx;
+                this.dy = dy;
+                this.color = color || "#CCCCCC"; // Default gray color
+                this.animationStartTime = Date.now();
+            }
 
-        socket.on('log', function(text) {
-            console.log(text);
-        });
+            // Update vehicle target position
+            update(x, y, dx, dy, color) {
+                const now = Date.now();
+                const elapsedTime = now - this.animationStartTime;
+                const progress = Math.min(1, elapsedTime / ANIMATION_DURATION);
+                
+                // If previous animation was complete, use target as start
+                if (progress >= 1) {
+                    this.startX = this.targetX;
+                    this.startY = this.targetY;
+                } else {
+                    // Calculate current position for smooth transition
+                    const easedProgress = getEasedProgress(progress);
+                    this.startX = this.startX + (this.targetX - this.startX) * easedProgress;
+                    this.startY = this.startY + (this.targetY - this.startY) * easedProgress;
+                }
+                
+                // Update properties
+                this.targetX = x;
+                this.targetY = y;
+                this.dx = dx;
+                this.dy = dy;
+                if (color) this.color = color;
+                this.animationStartTime = now;
+            }
 
-        // Lyssna efter batteristatus
-        socket.on('battery_update', function(data) {
+            // Draw vehicle on canvas
+            draw(ctx, progress) {
+                const easedProgress = getEasedProgress(progress);
+                
+                // Calculate current position
+                const x = this.startX + (this.targetX - this.startX) * easedProgress;
+                const y = this.startY + (this.targetY - this.startY) * easedProgress;
+                
+                // Draw vehicle body
+                ctx.save();
+                ctx.translate(x, y);
+                
+                // Car body with rounded corners
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.roundRect(-20, -40, 40, 80, 8);
+                ctx.fill();
+                
+                // Windows
+                ctx.fillStyle = "lightblue";
+                ctx.beginPath();
+                ctx.roundRect(-15, -30, 30, 15, 4);
+                ctx.fill();
+                
+                ctx.restore();
+                
+                // Draw direction arrow
+                this.drawArrow(ctx, x, y);
+            }
+            
+            // Draw direction arrow
+            drawArrow(ctx, x, y) {
+                if (!this.dx && !this.dy) return; // No direction to draw
+                
+                const angle = Math.atan2(this.dy, this.dx);
+                const arrowLength = 40; // Length of the arrow
+                
+                // Arrow line
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + this.dx * arrowLength, y + this.dy * arrowLength);
+                ctx.strokeStyle = "red";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Arrowhead
+                const headSize = 10;
+                ctx.beginPath();
+                ctx.moveTo(x + this.dx * arrowLength, y + this.dy * arrowLength);
+                ctx.lineTo(
+                    x + this.dx * arrowLength - headSize * Math.cos(angle - Math.PI/6),
+                    y + this.dy * arrowLength - headSize * Math.sin(angle - Math.PI/6)
+                );
+                ctx.lineTo(
+                    x + this.dx * arrowLength - headSize * Math.cos(angle + Math.PI/6),
+                    y + this.dy * arrowLength - headSize * Math.sin(angle + Math.PI/6)
+                );
+                ctx.closePath();
+                ctx.fillStyle = "red";
+                ctx.fill();
+            }
+        }
+
+        // Get eased progress for smoother animations (quadratic easing)
+        function getEasedProgress(progress) {
+            return progress < 0.5 
+                ? 2 * progress * progress 
+                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+        }
+
+        // Initialize SocketIO connection
+        function initializeSocket() {
+            socket = io();
+            
+            // Listen for dashboard updates
+            socket.on('update', function(data) {
+                document.getElementById("d_front").innerText = data["d_front"];
+                document.getElementById("time").innerText = data["time"];
+                document.getElementById("num_now").innerText = data["num_now"];
+                document.getElementById("d_close").innerText = data["d_close"];
+                updateStatus(data.status);
+                console.log('Dashboard data received', data);
+            });
+            
+            // Listen for vehicle updates (new format)
+            socket.on('vehicle_update', function(data) {
+                processVehicleData(data.vehicles);
+            });
+            
+            // Listen for log messages
+            socket.on('log', function(text) {
+                console.log(text);
+            });
+            
+            // Listen for battery updates
+            socket.on('battery_update', function(data) {
+                updateBatteryIcon(data.level);
+            });
+            
+            // Status update listener
+            socket.on('status_update', function(data) {
+                console.log("Status update received:", data);
+                // Additional handling if needed
+            });
+        }
+        
+        // Update battery icon based on level
+        function updateBatteryIcon(level) {
             var batteryIcon = document.getElementById("batteryIcon");
-            console.log("Battery data received ", data.level);
+            console.log("Battery data received ", level);
 
-            if (data.level > 75) {
+            batteryIcon.classList.remove(
+                "fa-battery-full", 
+                "fa-battery-half", 
+                "fa-battery-quarter", 
+                "fa-battery-empty"
+            );
+            
+            if (level > 75) {
                 batteryIcon.classList.add("fa-battery-full");
-                batteryIcon.classList.remove("fa-battery-half", "fa-battery-quarter", "fa-battery-empty");
-            } else if (data.level > 50) {
+            } else if (level > 50) {
                 batteryIcon.classList.add("fa-battery-half");
-                batteryIcon.classList.remove("fa-battery-full", "fa-battery-quarter", "fa-battery-empty");
-            } else if (data.level > 25) {
+            } else if (level > 25) {
                 batteryIcon.classList.add("fa-battery-quarter");
-                batteryIcon.classList.remove("fa-battery-full", "fa-battery-half", "fa-battery-empty");
             } else {
                 batteryIcon.classList.add("fa-battery-empty");
-                batteryIcon.classList.remove("fa-battery-full", "fa-battery-half", "fa-battery-quarter");
             }
-        });
+        }
 
+        // Process vehicle data from server
+        function processVehicleData(vehicleData) {
+            if (!vehicleData) return;
+            
+            const now = Date.now();
+            const vehicleIds = vehicleData.map(v => v.id);
+            
+            // Remove vehicles that are no longer present
+            vehicles = vehicles.filter(v => vehicleIds.includes(v.id));
+            
+            // Update existing vehicles or create new ones
+            vehicleData.forEach(data => {
+                const existingVehicle = vehicles.find(v => v.id === data.id);
+                
+                if (existingVehicle) {
+                    // Update existing vehicle
+                    existingVehicle.update(data.x, data.y, data.dx, data.dy, data.color);
+                } else {
+                    // Create new vehicle
+                    vehicles.push(new Vehicle(
+                        data.id, 
+                        data.x, 
+                        data.y, 
+                        data.dx, 
+                        data.dy, 
+                        data.color
+                    ));
+                }
+            });
+            
+            // Start animation if not already running
+            if (!animationFrameId) {
+                animateVehicles();
+            }
+        }
+
+        // Animate vehicles on canvas
+        function animateVehicles() {
+            const now = Date.now();
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw each vehicle
+            let activeTweens = false;
+            
+            for (const vehicle of vehicles) {
+                const elapsedTime = now - vehicle.animationStartTime;
+                const progress = Math.min(1, elapsedTime / ANIMATION_DURATION);
+                
+                vehicle.draw(ctx, progress);
+                
+                // Check if animation is still active
+                if (progress < 1) {
+                    activeTweens = true;
+                }
+            }
+            
+            // Continue animation loop if needed
+            if (activeTweens) {
+                animationFrameId = requestAnimationFrame(animateVehicles);
+            } else {
+                animationFrameId = null;
+            }
+        }
+
+        // Update status indicators
         function updateStatus(status) {
             let color;
             if (status <= 3) {
@@ -52,11 +260,16 @@
             } else {
                 color = '#ff5252';
             }
-            document.querySelectorAll('.indicator').forEach((box, index) => {
-                box.classList.toggle('active', index < status);
-            });
+            console.log("Status update:", status, color);
+            let indicators = document.getElementsByClassName("indicator");
+
+            // Loopa igenom och sätt färg
+            for (let i = 0; i < indicators.length; i++) {
+                indicators[i].style.backgroundColor = 8-i < status ? color : "rgb(111, 111, 111)";
+            }
         }
 
+        // Toggle system state (start/stop)
         function toggleButton_f() {
             var button = document.getElementById("toggleButton");
             var currentState = button.getAttribute("data-state");
@@ -65,19 +278,16 @@
                 button.setAttribute("data-state", "stop");
                 button.innerText = "Stop";
                 button.style.backgroundColor = "lightcoral";
-            socket.emit("toggle", { action: "start" });
-
+                socket.emit("toggle", { action: "start" });
             } else {
                 button.setAttribute("data-state", "start");
                 button.innerText = "Start";
                 button.style.backgroundColor = "lightgreen";
-            socket.emit("toggle", { action: "stop" });
-
+                socket.emit("toggle", { action: "stop" });
             }
         }
 
-
-        // Sends the size of the div to the server
+        // Send div dimensions to server
         function sendDivArea() {
             var div = document.getElementById("car_content");
             if (!div) return;
@@ -86,177 +296,29 @@
             var height = div.offsetHeight;
 
             console.log("Width: " + width + " Height: " + height);
-            // Skicka till servern med Socket.IO
             socket.emit("div_area", { width: width, height: height });
         }
 
-        // Kör vid fönsterstorleksändring
-        window.addEventListener("resize", sendDivArea);
-
-        // Kör direkt vid sidans laddning
-        window.onload =  function () {
-            sendDivArea();
-            setCanvas();
-        }
-
-        // canvas drawing
-        let canvas;
-        let ctx;
-        function setCanvas() {
+        // Initialize canvas
+        function initializeCanvas() {
             canvas = document.getElementById("carCanvas");
+            if (!canvas) return;
+            
             canvas.height = 350; // height - 2*padding
-            canvas.width = 280; // width - 2*padding
+            canvas.width = 280;  // width - 2*padding
             ctx = canvas.getContext("2d");
-            console.log('Canvas', canvas)
-        }
-        let cars = [];
-        let animationFrameId = null;
-        
-        // Animation settings - match exactly with server update time
-        const ANIMATION_DURATION = 1000; // 1 second - matches server's time.sleep(1)
-        
-        
-        function drawCar(x, y, color) {
-            ctx.save();
-            ctx.translate(x, y);
-            
-            // Car body with rounded corners - restored to original dimensions
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.roundRect(-25, -50, 50, 100, 10);
-            ctx.fill();
-            
-            // Windows
-            ctx.fillStyle = "lightblue";
-            ctx.beginPath();
-            ctx.roundRect(-18, -40, 36, 20, 5);
-            ctx.fill();
-            
-            // Removed wheels as requested
-            
-            ctx.restore();
+            console.log('Canvas initialized', canvas.width, canvas.height);
         }
 
-        function drawArrow(x, y, dx, dy) {
-            let angle = Math.atan2(dy, dx);
+        // Initialize application
+        window.onload = function() {
+            initializeSocket();
+            initializeCanvas();
+            sendDivArea();
             
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + dx * 5, y + dy * 5);
-            ctx.strokeStyle = "red";
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(x + dx * 5, y + dy * 5);
-            ctx.lineTo(x + dx * 5 - 5 * Math.cos(angle - Math.PI / 6), y + dy * 5 - 5 * Math.sin(angle - Math.PI / 6));
-            ctx.lineTo(x + dx * 5 - 5 * Math.cos(angle + Math.PI / 6), y + dy * 5 - 5 * Math.sin(angle + Math.PI / 6));
-            ctx.lineTo(x + dx * 5, y + dy * 5);
-            ctx.fillStyle = "red";
-            ctx.fill();
-        }
-        
-        function keepInBounds(value, min, max) {
-            return Math.max(min, Math.min(max, value));
-        }
-        
-        function animateCars(timestamp) {
-            // Calculate how far we are through the animation (0-1)
-            const elapsedTime = Date.now() - cars[0].animationStartTime;
-            const progress = Math.min(1, elapsedTime / ANIMATION_DURATION);
-            
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw each car at its interpolated position
-            for (const car of cars) {
-                // Use easing for smoother animation
-                const easedProgress = progress < 0.5 
-                    ? 2 * progress * progress 
-                    : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-                
-                // Calculate current position with interpolation
-                const currentX = car.startX + (car.targetX - car.startX) * easedProgress;
-                const currentY = car.startY + (car.targetY - car.startY) * easedProgress;
-                
-
-                // Draw car and its direction arrow
-                drawCar(currentX, currentY, "lightgray");
-                drawArrow(currentX, currentY, car.dx, car.dy);
-            }
-            
-            // Continue animation if not complete
-            if (progress < 1) {
-                animationFrameId = requestAnimationFrame(animateCars);
-            }
-        }
-        
-    socket.on("new_points", function(data) {
-    let points = JSON.parse(data)
-    const now = Date.now();
-    console.log(points)
-
-    // If there are fewer points than cars, we need to pop cars from the array
-    if (points.length < cars.length) {
-        // Calculate how many cars to remove
-        const carsToRemove = cars.length - points.length;
-
-        // Remove cars that have been popped from the list
-        cars.splice(cars.length - carsToRemove, carsToRemove);
-    }
-
-    // Initialize cars if it's the first update or if we added new points
-    if (cars.length === 0 || points.length > cars.length) {
-        cars = points.map(point => ({
-            startX: point.x,
-            startY: point.y,
-            targetX: point.x,
-            targetY: point.y,
-            color:point.color
-            id: point.id,
-            dx: point.dx,
-            dy: point.dy,
-            animationStartTime: now
-        }));
-    } else {
-        // Update car targets if no cars have been popped
-        points.forEach((point, index) => {
-            if (index < cars.length) {
-                // Use current position as start point for next animation
-                const elapsedTime = now - cars[index].animationStartTime;
-                const progress = Math.min(1, elapsedTime / ANIMATION_DURATION);
-
-                // If previous animation was complete, use target position
-                if (progress >= 1) {
-                    cars[index].startX = cars[index].targetX;
-                    cars[index].startY = cars[index].targetY;
-                } else {
-                    const easedProgress = progress < 0.5 
-                        ? 2 * progress * progress 
-                        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-                    
-                    // Calculate current position
-                    cars[index].startX = cars[index].startX + 
-                        (cars[index].targetX - cars[index].startX) * easedProgress;
-                    cars[index].startY = cars[index].startY + 
-                        (cars[index].targetY - cars[index].startY) * easedProgress;
-                }
-
-                // Update target and direction
-                cars[index].targetX = point.x
-                cars[index].targetY = point.y
-                cars[index].dx = point.dx;
-                cars[index].dy = point.dy;
-
-                // Reset animation timer
-                cars[index].animationStartTime = now;
-            }
-        });
-    }
-
-    // Start new animation
-    animationFrameId = requestAnimationFrame(animateCars);
-});
+            // Handle window resize
+            window.addEventListener("resize", sendDivArea);
+        };
     </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -470,5 +532,5 @@
         <button id="toggleButton" onclick="toggleButton_f()" data-state="start">Start</button>
     </div>
 </div>
-<button onclick="updateStatus(8)">Test Indicators</button>
+<button onclick="updateStatus(0)">Test Indicators</button>
 </body>

@@ -36,20 +36,8 @@ class WebServer:
 
         self.FORWARD_LEN = 20 # the length forward which will be displayed on the website
 
-        self.ratio_p_div_m:float = None
-
-        self.ID_to_color = {1:[122,122,122], 2:[14,160,2], 4:[255,0,3]}
-
-        self.points = []
-        for i in range(5):
-            self.points.append({
-                "id": i,
-                "x": random.randint(50, 450),
-                "y": random.randint(50, 450),
-                "dx": random.uniform(-5, 5),
-                "dy": random.uniform(-5, 5)
-            })
-
+        self.ratio_p_div_m = 1 #! fix later
+        self.ID_to_color = {}
 
         @self.app.route("/")
         def index():
@@ -77,30 +65,39 @@ class WebServer:
             width = data['width']
             height = data['height']
             self.ID_to_area_p, self.ratio_p_div_m = get_area_in_pixels((width,height), self.FORWARD_LEN)
+            self.log(f"Canvas dimensions set: {width}x{height} pixels")
 
-    # canvas functionality
-    def send_points(self, latest_data:np.ndarray, ID_to_color):
-            '''
-            Input:
-                latest_data: [[id, dx[-1], dy[-1], vx,vy]]'''
-
-            for car in latest_data:
-                self.points.append({
-                "id": car[0],
-                "x": car[1],
-                "y": car[2],
-                "dx": car[3],
-                "dy": car[4]
-                })
+    def send_vehicle_data(self, processed_data):
+        """
+        Send vehicle data to the client.
+        
+        Args:
+            processed_data: Processed data array with [id, x, y, dx, dy] for each vehicle
+        """
+        if processed_data.size == 0:
+            # No vehicles to display
+            self.socketio.emit("vehicle_update", {"vehicles": []})
+            return
             
-            self.socketio.emit("new_points", json.dumps(self.points))
-            time.sleep(1)  # Send updates every second
+        vehicles = []
+        for vehicle in processed_data:
+            vehicle_id = int(vehicle[0])
+            color = self.ID_to_color.get(vehicle_id, "#CCCCCC")  # Default to gray if no color
+            
+            vehicles.append({
+                "id": vehicle_id,
+                "x": float(vehicle[1]),
+                "y": float(vehicle[2]),
+                "dx": float(vehicle[3]),
+                "dy": float(vehicle[4]),
+                "color": color
+            })
+        
+        self.socketio.emit("vehicle_update", {"vehicles": vehicles})
 
     def handle_connect(self):
-        print("Client connected")
+        self.log("Client connected")
 
-
-    # other
     def log(self, msg: str, type: int = 0):
         log_types = ['INFO', 'WARNING', 'ERROR', 'CRITICAL', 'DEBUG']
         log_type = log_types[min(type, 4)]
@@ -111,27 +108,68 @@ class WebServer:
         '''Process the data to prepare it to be displayed as pixels
         
         Input:
-            latest_data = [tracker_id, dx, dy, vx, vy]'''
-        actual_data_m = latest_data[:,1:]*self.ratio_p_div_m
-        ids = latest_data[:,0]
-        processed_data = np.column_stack((ids, actual_data_m))
+            latest_data = [tracker_id, dx, dy, vx, vy]
+            
+        Returns:
+            processed_data = [tracker_id, x_pixel, y_pixel, dx_norm, dy_norm]
+        '''
+        if latest_data.size == 0:
+            return np.array([])
+            
+        # Apply ratio to convert meters to pixels
+        positions = latest_data[:, 1:3] * self.ratio_p_div_m
+        
+        # Normalize velocity vectors for direction indicators
+        velocities = latest_data[:, 3:5]
+        velocity_magnitudes = np.linalg.norm(velocities, axis=1, keepdims=True)
+        # Avoid division by zero
+        normalized_velocities = np.where(
+            velocity_magnitudes > 0.001,
+            velocities / velocity_magnitudes,
+            np.zeros_like(velocities)
+        )
+        
+        # Combine IDs with processed data
+        ids = latest_data[:, 0].reshape(-1, 1)
+        processed_data = np.hstack((ids, positions, normalized_velocities))
+        
         return processed_data
 
-
-    def update_data(self, d_front: float, d_close: int, num_now: int,latest_data:np.ndarray,ID_to_color:dict, warning_status: int):
+    def update_data(self, d_front: float, d_close: int, num_now: int, latest_data: np.ndarray, ID_to_color: dict, warning_status: int):
+        """
+        Update dashboard data and send to clients.
+        
+        Args:
+            d_front: Distance to front vehicle in meters
+            d_close: Distance to closest vehicle in meters
+            num_now: Number of vehicles detected
+            latest_data: Raw vehicle data array [id, dx, dy, vx, vy]
+            ID_to_color: Dictionary mapping vehicle IDs to display colors
+            warning_status: Warning level (0-9)
+        """
+        # Calculate elapsed time
         elapsed_seconds = time.time() - self.start_timestamp if self.start_timestamp else 0
         time_str = time.strftime("%H:%M:%S" if elapsed_seconds >= 3600 else "%M:%S", time.gmtime(elapsed_seconds))
+        
+        # Save color dictionary
         self.ID_to_color = ID_to_color
+        
+        # Process vehicle data for rendering
         processed_data = self.process_data(latest_data)
+        
+        # Update current data for dashboard
         self.current_data.update({
             "time": time_str,
             "d_front": d_front,
             "num_now": num_now,
             "status": warning_status,
-            "latest_data": processed_data,
             "d_close": d_close,
         })
-        self.send_points(latest_data, ID_to_color)
+        
+        # Send vehicle data for canvas rendering
+        self.send_vehicle_data(processed_data)
+        
+        # Send dashboard updates
         self.socketio.emit("update", self.current_data)
 
     def set_start(self):
