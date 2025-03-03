@@ -11,26 +11,44 @@
         var canvas = document.getElementById("canvas");
         var ctx = canvas.getContext("2d");
 
+        // Set canvas background
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw axes
+        ctx.strokeStyle = 'black';
+        ctx.beginPath();
+        ctx.moveTo(canvas.width / 2, 0);
+        ctx.lineTo(canvas.width / 2, canvas.height);
+        ctx.moveTo(0, canvas.height / 2);
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
+
+        // Draw point at (0,0)
+        ctx.fillStyle = 'red';
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, 5, 0, Math.PI * 2);
+        ctx.fill();
+
         function drawCar(x, y, color) {
 
             ctx.save();
             ctx.translate(x, y);
             
-            // drawWheel(-25, -32);
-            // drawWheel(23, -32);
-            // drawWheel(-23, 32);
-            // drawWheel(23, 32);
-
             // Car body with rounded corners
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.roundRect(-25, -50, 50, 100, 10);
+            let width = 50;
+            let height = 70;
+
+            ctx.roundRect(-width/2, -height, width, height, width/5); // -25 if x start coord, -50 is y start coord
+            // 50 width ,100 height and 10 is for the roundness on the corners
             ctx.fill();
             
             // Windows
             ctx.fillStyle = "lightblue";
             ctx.beginPath();
-            ctx.roundRect(-18, -40, 36, 20, 5);
+            ctx.roundRect(-0.4*width, -height*0.9, width*0.8, 0.2*height, 0.05*height);
             ctx.fill();
 
 

@@ -17,7 +17,7 @@
 
         // Vehicle class for better object management
         class Vehicle {
-            constructor(id, x, y, dx, dy, color) {
+            constructor(id, x, y, dx, dy, color,width,height) {
                 this.id = id;
                 this.startX = x;
                 this.startY = y;
@@ -25,12 +25,14 @@
                 this.targetY = y;
                 this.dx = dx;
                 this.dy = dy;
+                this.width = width;
+                this.height = height;
                 this.color = color || "#CCCCCC"; // Default gray color
                 this.animationStartTime = Date.now();
             }
 
             // Update vehicle target position
-            update(x, y, dx, dy, color) {
+            update(x, y, dx, dy, color, width, height) {
                 const now = Date.now();
                 const elapsedTime = now - this.animationStartTime;
                 const progress = Math.min(1, elapsedTime / ANIMATION_DURATION);
@@ -51,6 +53,8 @@
                 this.targetY = y;
                 this.dx = dx;
                 this.dy = dy;
+                this.width = width;
+                this.height = height;
                 if (color) this.color = color;
                 this.animationStartTime = now;
             }
@@ -66,17 +70,22 @@
                 // Draw vehicle body
                 ctx.save();
                 ctx.translate(x, y);
-                
+
                 // Car body with rounded corners
                 ctx.fillStyle = this.color;
                 ctx.beginPath();
-                ctx.roundRect(-20, -40, 40, 80, 8);
+                let width = this.width;
+                let height = this.height;
+                console.log(this.startX, this.targetX, easedProgress);
+
+                ctx.roundRect(-width/2, -height, width, height, width/5); // -25 if x start coord, -50 is y start coord
+                // 50 width ,100 height and 10 is for the roundness on the corners
                 ctx.fill();
-                
+
                 // Windows
                 ctx.fillStyle = "lightblue";
                 ctx.beginPath();
-                ctx.roundRect(-15, -30, 30, 15, 4);
+                ctx.roundRect(-0.4*width, -0.9*height, 0.8*width, 0.2*height, 0.05*width);
                 ctx.fill();
                 
                 ctx.restore();
@@ -185,7 +194,6 @@
         }
 
         // Process vehicle data from server
-        // Process vehicle data from server
         function processVehicleData(vehicleData) {
             if (!vehicleData) {
                 // If we get empty data, clear all vehicles
@@ -207,7 +215,7 @@
 
                 if (existingVehicle) {
                     // Update existing vehicle
-                    existingVehicle.update(data.x, data.y, data.dx, data.dy, data.color);
+                    existingVehicle.update(data.x, data.y, data.dx, data.dy, data.color,data.width,data.height);
                 } else {
                     // Create new vehicle
                     vehicles.push(new Vehicle(
@@ -216,7 +224,9 @@
                         data.y, 
                         data.dx, 
                         data.dy, 
-                        data.color
+                        data.color,
+                        data.width,
+                        data.height
                     ));
 
                 }

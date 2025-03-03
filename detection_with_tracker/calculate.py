@@ -42,6 +42,7 @@ class CrashCalculater:
 
         self.ID_to_color = {}
 
+
         self.save_coming_distance = parameters.save_coming_distance
         self.display_coming_distance = parameters.display_coming_distance
 

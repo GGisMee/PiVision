@@ -19,7 +19,7 @@ class MainManager:
         parameters = Parameters()
         parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
         if not rpicam:
-            parameters.set_input_video(input_video_path=Parameters.DEFAULT_VIDEO_PATHS[1])
+            parameters.set_input_video(input_video_path=Parameters.DEFAULT_VIDEO_PATHS[2])
         parameters.set_displaying(displayFrame=False,save_frame_debug=True)
         return parameters
     
@@ -52,9 +52,10 @@ class MainManager:
                 d_close = round(self.detection_manager.closest_d,2)
                 latest_data = np.array(self.detection_manager.latest_data)
                 
-                
+                # Används för att visa färgerna på bilarna i canvasen.
                 ID_to_color = self.detection_manager.distance_estimator.ID_to_color
-                
+                # Används för att få rätt storlekar på bilarna i canvasen.
+                ID_to_class = self.detection_manager.distance_estimator.data_corresponding_class
 
             else:
                 continue
@@ -64,7 +65,8 @@ class MainManager:
                 d_close=d_close,
                 latest_data=latest_data,
                 warning_status=status,
-                ID_to_color = ID_to_color
+                ID_to_color = ID_to_color,
+                ID_to_class = ID_to_class
             )
         else:
             # When the loop it run through after stop is pressed

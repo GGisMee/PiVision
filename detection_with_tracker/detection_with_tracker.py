@@ -397,7 +397,7 @@ class DetectionManager:
         # adds the detections to a data dictionary to keep track of useful detections
         self.distance_estimator.add_detection(sv_detections, frame)
 
-
+        
         # gets data which will then be displayed on the website
         self.closest_front_distance, self.closest_d, self.crash_status, self.latest_data = self.distance_estimator.dataloop()
 

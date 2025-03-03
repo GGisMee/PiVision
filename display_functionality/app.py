@@ -12,9 +12,9 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %
 def get_area_in_pixels(area_p: list[int], forward_length_m: int):
     ratio_p_div_m = area_p[1] / forward_length_m
     ID_to_area_p = {
-        2: (np.array([1.75, 4.55]) * ratio_p_div_m).round(),
-        5: (np.array([2.55, 12]) * ratio_p_div_m).round(),
-        7: (np.array([2.4, 16]) * ratio_p_div_m).round()
+        2: (np.array([1.75, 4.55]) * ratio_p_div_m).round().tolist(),
+        5: (np.array([2.55, 12]) * ratio_p_div_m).round().tolist(),
+        7: (np.array([2.4, 16]) * ratio_p_div_m).round().tolist()
     }
     return ID_to_area_p, ratio_p_div_m
 
@@ -43,6 +43,8 @@ class WebServer:
 
         self.width = None
         self.height = None
+
+        self.ID_to_area_p=None
         
         @self.app.route("/")
         def index():
@@ -53,6 +55,7 @@ class WebServer:
             action = data.get("action")
             if action == "start":
                 if self.reference_main_manager:
+                    # sends the command to start to MainManager
                     self.reference_main_manager.start_process()
                 self.running = True
                 self.set_start()
@@ -70,14 +73,16 @@ class WebServer:
             self.width = data['width']
             self.height = data['height']
             self.ID_to_area_p, self.ratio_p_div_m = get_area_in_pixels((self.width,self.height), self.FORWARD_LEN)
+
             self.log(f"Canvas dimensions set: {self.width}x{self.height} pixels")
 
-    def send_vehicle_data(self, processed_data):
+    def send_vehicle_data(self, processed_data, ID_to_class:dict):
         """
         Send vehicle data to the client.
 
         Args:
             processed_data: Processed data array with [id, x, y, dx, dy] for each vehicle
+            ID_to_class: a dictionary with {ID:class} ex: {1:7}
         """
         if processed_data.size == 0:
             # No vehicles to display, clear all
@@ -90,13 +95,20 @@ class WebServer:
             vehicle_id = int(vehicle[0])
             color = self.ID_to_color.get(vehicle_id, "#CCCCCC")  # Default to gray if no color
 
+            vehicle_class = ID_to_class[vehicle_id]
+            vehicle_width, vehicle_height = self.ID_to_area_p[vehicle_class]
+            
+
+            #* Add ID_to_area_p for car_wh/bus_wh/truck_wh
             vehicles.append({
                 "id": vehicle_id,
                 "x": float(vehicle[1])+self.width/2, # put it in the middle if 0
                 "y": float(vehicle[2]),
                 "dx": float(vehicle[3]),
                 "dy": float(vehicle[4]),
-                "color": color if isinstance(color, str) else f"rgb({color[0]}, {color[1]}, {color[2]})"
+                "color": color if isinstance(color, str) else f"rgb({color[0]}, {color[1]}, {color[2]})",
+                "width":vehicle_width,
+                "height":vehicle_height
             })
         self.socketio.emit("vehicle_update", {"vehicles": vehicles})
 
@@ -140,7 +152,7 @@ class WebServer:
         
         return processed_data
 
-    def update_data(self, d_front: float, d_close: int, num_now: int, latest_data: np.ndarray, ID_to_color: dict, warning_status: int):
+    def update_data(self, d_front: float, d_close: float, num_now: int, latest_data: np.ndarray, ID_to_color: dict, ID_to_class:dict, warning_status: int):
         """
         Update dashboard data and send to clients.
         
@@ -172,7 +184,7 @@ class WebServer:
         })
         
         # Send vehicle data for canvas rendering
-        self.send_vehicle_data(processed_data)
+        self.send_vehicle_data(processed_data, ID_to_class)
         
         # Send dashboard updates
         self.socketio.emit("update", self.current_data)
