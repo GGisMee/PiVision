@@ -11,3 +11,4 @@ Gjort - Fixa ett sätt att integrera check crash, minsta avstånd, avstånd fram
 Allmänt
 * Fixa ett bättre sätt att hålla koll på alla parametrar. Alltså förbättra parameter systemet
 * FIxa så att detectioning fungerar. Just nu är det uppfudgeat
+* Fixa så att varningsstatus fungerar
