@@ -13,8 +13,8 @@ def get_area_in_pixels(area_p: list[int], forward_length_m: int):
     ratio_p_div_m = area_p[1] / forward_length_m
     ID_to_area_p = {
         2: (np.array([1.75, 4.55]) * ratio_p_div_m).round().tolist(),
-        5: (np.array([2.55, 12]) * ratio_p_div_m).round().tolist(),
-        7: (np.array([2.4, 16]) * ratio_p_div_m).round().tolist()
+        5: (np.array([2.55, 6]) * ratio_p_div_m).round().tolist(),
+        7: (np.array([2.4, 6]) * ratio_p_div_m).round().tolist()
     }
     return ID_to_area_p, ratio_p_div_m
 
@@ -134,17 +134,20 @@ class WebServer:
             return np.array([])
             
         # Apply ratio to convert meters to pixels
-        positions = latest_data[:, 1:3] * self.ratio_p_div_m
+        positions = latest_data[:, 1:] * self.ratio_p_div_m
         
+        positions[:,1] = self.height-positions[:,1]
+
         # Normalize velocity vectors for direction indicators
-        velocities = latest_data[:, 3:5]
+        velocities = latest_data[:, 2:]
         velocity_magnitudes = np.linalg.norm(velocities, axis=1, keepdims=True)
         # Avoid division by zero
-        normalized_velocities = np.where(
-            velocity_magnitudes > 0.001,
-            velocities / velocity_magnitudes,
-            np.zeros_like(velocities)
-        )
+        with np.errstate(divide='ignore'):
+            normalized_velocities = np.where(
+                velocity_magnitudes > 0.001,
+                velocities / velocity_magnitudes,
+                np.zeros_like(velocities)
+            )
         
         # Combine IDs with processed data
         ids = latest_data[:, 0].reshape(-1, 1)

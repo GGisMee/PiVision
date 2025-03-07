@@ -272,6 +272,7 @@ class DetectionManager:
         # Preprocess the frame
         preprocessed_frame: np.ndarray = self._preprocess_frame(frame)
 
+        # cv2.imwrite('output/test.png', preprocessed_frame)
         #* hailo setup
         # Put the frame into the input queue for inference
         self.input_queue.put([preprocessed_frame])
@@ -302,7 +303,7 @@ class DetectionManager:
 
         self.vehicle_detected = True
         #* Postprocess the detections 
-        sv_detections = self._process_detections(detections=detections, frame=frame)
+        sv_detections = self._process_detections(detections=detections, frame=preprocessed_frame)
 
         # if (self.frame_number_handler.current_frame % 50) == 0:
         #     timetester.print_execution_times()
@@ -310,7 +311,7 @@ class DetectionManager:
         # if displaying is done in any way
         if self.parameters.displayFrame or self.parameters.save_frame_debug:
             #* Annotate the features such as bounding boxes and distance in title to frame
-            annotated_labeled_frame = self._annotate_frame(frame=frame,sv_detections=sv_detections)
+            annotated_labeled_frame = self._annotate_frame(frame=preprocessed_frame,sv_detections=sv_detections)
         
             #* Displays the frame
             if not self.displayer.display_frame(annotated_labeled_frame):
@@ -410,6 +411,10 @@ class DetectionManager:
         # gets labels for displaying
         labels: List[str] = self.distance_estimator.get_display_labels(sv_detections)
 
+        # varje sekune
+        if self.frame_number_handler.current_frame % self.frame_number_handler.max_fps * 1 == 0 or (self.frame_number_handler.max_fps == np.inf and self.frame_number_handler.current_frame % 18 == 0):
+            print(labels)
+
         # Annotate objects with bounding boxes
         annotated_frame: np.ndarray = self.box_annotator.annotate(
             scene=frame.copy(), detections=sv_detections
@@ -425,7 +430,7 @@ def setParameters():
     parameters = Parameters()
     parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
     parameters.set_input_video(input_video_path=Parameters.DEFAULT_VIDEO_PATHS[1])
-    parameters.set_displaying(displayFrame=True,save_frame_debug=True, display_coming_distance=False, save_coming_distance=False)
+    parameters.set_displaying(displayFrame=False,save_frame_debug=True, display_coming_distance=False, save_coming_distance=False)
     parameters.set_max_fps()
     return parameters
     
