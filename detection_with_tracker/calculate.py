@@ -31,11 +31,11 @@ class CrashCalculater:
         self.class_names = class_names
 
         self.FOCAL_LENGTH = 248 # In pixels!
+        self.multiplier = 1 # just to increase the size of the FOCAL_LENGTH to ensure that the picture gets more correct. Must be an issue somewhere.
+        self.FOCAL_LENGTH*=self.multiplier
         self.list_length_cap = parameters.datapoint_cap
         self.min_length_datapoints = 10
         self.start_time = None
-
-        self.vector_time = 1 # seconds from which the time vector is predicted from.
 
         # the time until the car is forgotten. Reason is to ensure that the cars doesn't clip stuck on screen.
         self.time_to_forget = 2 # seconds

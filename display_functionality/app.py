@@ -9,8 +9,13 @@ import json
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
-def get_area_in_pixels(area_p: list[int], forward_length_m: int):
-    ratio_p_div_m = area_p[1] / forward_length_m
+def get_area_in_pixels(area_p: list[int], forward_length_m: int=None, side_length_m: int=None):
+    if forward_length_m:
+        ratio_p_div_m = area_p[1] / forward_length_m
+    elif side_length_m:
+        ratio_p_div_m = area_p[0] / side_length_m
+    else:
+        exit('Neither forward_length nor side_length inputed')
     ID_to_area_p = {
         2: (np.array([1.75, 4.55]) * ratio_p_div_m).round().tolist(),
         5: (np.array([2.55, 6]) * ratio_p_div_m).round().tolist(),
@@ -34,7 +39,8 @@ class WebServer:
         self.start_timestamp = None
         self.last_battery_check_timestamp = None
 
-        self.FORWARD_LEN = 20 # the length forward which will be displayed on the website
+        self.FORWARD_LEN = None # 20 # the length forward which will be displayed on the website
+        self.SIDE_LEN = 12 # the length forward which will be displayed on the website
 
         self.ratio_p_div_m = 1 #! fix later
         self.ID_to_color = {}
@@ -72,7 +78,7 @@ class WebServer:
         def handle_div_area(data):
             self.width = data['width']
             self.height = data['height']
-            self.ID_to_area_p, self.ratio_p_div_m = get_area_in_pixels((self.width,self.height), self.FORWARD_LEN)
+            self.ID_to_area_p, self.ratio_p_div_m = get_area_in_pixels((self.width,self.height), self.FORWARD_LEN, self.SIDE_LEN)
 
             self.log(f"Canvas dimensions set: {self.width}x{self.height} pixels")
 
@@ -134,12 +140,12 @@ class WebServer:
             return np.array([])
             
         # Apply ratio to convert meters to pixels
-        positions = latest_data[:, 1:] * self.ratio_p_div_m
+        positions = latest_data[:, 1:3] * self.ratio_p_div_m
         
         positions[:,1] = self.height-positions[:,1]
 
         # Normalize velocity vectors for direction indicators
-        velocities = latest_data[:, 2:]
+        velocities = latest_data[:, 3:]
         velocity_magnitudes = np.linalg.norm(velocities, axis=1, keepdims=True)
         # Avoid division by zero
         with np.errstate(divide='ignore'):
