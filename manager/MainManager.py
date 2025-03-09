@@ -3,6 +3,8 @@ from detection_with_tracker.detection_with_tracker import Parameters
 
 from display_functionality.app import WebServer
 
+from buzzer.BuzzerManager import BuzzerManager
+
 import numpy as np
 
 import threading
@@ -13,8 +15,12 @@ class MainManager:
         self.parameters = self.setParameters(rpicam=False)
         self.detection_manager = DetectionManager(self.parameters)
 
+        self.buzzer_manager = BuzzerManager()
+
+
         self.server = WebServer(self)
         self.server.run()
+
     def setParameters(self,rpicam:bool=False):
         parameters = Parameters()
         parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
@@ -56,8 +62,10 @@ class MainManager:
                 ID_to_color = self.detection_manager.distance_estimator.ID_to_color
                 # Används för att få rätt storlekar på bilarna i canvasen.
                 ID_to_class = self.detection_manager.distance_estimator.data_corresponding_class
+                self.buzzer_manager.check_play(status=status)
 
             else:
+                self.buzzer_manager.play(status=0)
                 continue
             self.server.update_data(
                 num_now=num_now,
@@ -68,6 +76,7 @@ class MainManager:
                 ID_to_color = ID_to_color,
                 ID_to_class = ID_to_class
             )
+
         else:
             # When the loop it run through after stop is pressed
             self.server.set_stop()
