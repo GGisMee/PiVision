@@ -112,6 +112,8 @@ class FrameGrabber:
         self.index = 0
         self.max_frames = parameters.rpi_camera_max_frames
 
+        self.mean_fps = 0
+
         if self.use_rpi:
             self.camera = Picamera2()
             # Here we configure the camera to take in a size of 1920x1080. We also make sure that it is in RGB and that it is for video capture
@@ -124,7 +126,6 @@ class FrameGrabber:
         else:
             self.frame_generator = sv.get_video_frames_generator(source_path=parameters.input_video_path)
             self.video_info = sv.VideoInfo.from_video_path(video_path=parameters.input_video_path)
-    
     def get_wh_set_generator(self):
         if self.use_rpi:
             video_w, video_h = 1920, 1080
@@ -132,17 +133,26 @@ class FrameGrabber:
             video_w, video_h = self.video_info.resolution_wh
         return video_w, video_h
 
-    def get_frame(self):
+    def get_frame(self, fps:int|bool, current_frame_num:int):
         self.index += 1
         if self.use_rpi:
             frame = self.camera.capture_array()
             if self.index == self.max_frames: # stop capture when a certain frame is reached.
-                return True
+                return 1
         else:
             if self.index == self.video_info.total_frames:
                 # To check that the video has been run through
-                return True
+                return 1
+            
             frame = next(self.frame_generator)
+            if fps:
+                self.mean_fps = round(30*(self.mean_fps/29+fps))
+                if self.video_info.fps > self.mean_fps:
+                    skipping = round(self.video_info/self.mean_fps)
+                    if current_frame_num % skipping == 0:
+                        return 2
+
+                #! Continue to add frame skipping to match fps of video.
         return frame
      
 class FrameNumberHandler:
@@ -264,10 +274,14 @@ class DetectionManager:
 
         # fps stuff
         self.frame_number_handler.update_frame()
+        
         #* Get frame
-        frame=self.framegrabber.get_frame()
-        if isinstance(frame, bool):
-            return True # If last frame is reached
+        frame=self.framegrabber.get_frame(self.frame_number_handler.fps, self.frame_number_handler.current_frame)
+        if isinstance(frame, int):
+            if frame == 1:
+                return True # If last frame is reached
+            if frame == 2:
+                return False
         
         # Preprocess the frame
         preprocessed_frame: np.ndarray = self._preprocess_frame(frame)

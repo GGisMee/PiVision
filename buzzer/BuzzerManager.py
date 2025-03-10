@@ -13,11 +13,11 @@ class BuzzerManager:
             return 0
         
         if status>=7:
-            self.check_play()
+            self.play()
         else:
             self.stop()
 
-    def check_play(self,frequency:int=2500):
+    def play(self,frequency:int=2500):
         lgpio.tx_pwm(self.gpio_instance, self.PIN, frequency , 50)  # 50% duty cycle
 
     def stop(self):

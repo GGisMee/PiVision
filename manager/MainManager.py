@@ -12,7 +12,7 @@ import threading
 class MainManager:
     '''the main file which manages all the functionality'''
     def __init__(self):
-        self.parameters = self.setParameters(rpicam=False)
+        self.parameters = self.setParametersTesting(rpicam=False)
         self.detection_manager = DetectionManager(self.parameters)
 
         self.buzzer_manager = BuzzerManager()
@@ -21,12 +21,18 @@ class MainManager:
         self.server = WebServer(self)
         self.server.run()
 
-    def setParameters(self,rpicam:bool=False):
+    def setParametersTesting(self,rpicam:bool=False):
         parameters = Parameters()
         parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
         if not rpicam:
-            parameters.set_input_video(input_video_path=Parameters.DEFAULT_VIDEO_PATHS[2])
+            parameters.set_input_video(input_video_path='output/videos/recorded_video8.mp4')
         parameters.set_displaying(displayFrame=False,save_frame_debug=True)
+        return parameters
+    
+    def setParametersFunctional(self):
+        parameters = Parameters()
+        parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
+        parameters.set_displaying(displayFrame=False,save_frame_debug=False)
         return parameters
     
     def start_process(self):
