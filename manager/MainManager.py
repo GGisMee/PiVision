@@ -5,17 +5,22 @@ from display_functionality.app import WebServer
 
 from buzzer.BuzzerManager import BuzzerManager
 
+from voltage_tester.battery_voltage import VoltageTester
+from time import time
 import numpy as np
 
 import threading
 
 class MainManager:
-    '''the main file which manages all the functionality'''
+    '''The main file which manages all the functionality'''
     def __init__(self):
         self.parameters = self.setParametersTesting(rpicam=False)
         self.detection_manager = DetectionManager(self.parameters)
 
         self.buzzer_manager = BuzzerManager()
+
+        self.voltage_tester = VoltageTester()
+        
 
 
         self.server = WebServer(self)
@@ -71,8 +76,14 @@ class MainManager:
                 self.buzzer_manager.check_play(status=status)
 
             else:
-                self.buzzer_manager.play(status=0)
+                self.buzzer_manager.play()
                 continue
+            
+            self.voltage_procentage = self.voltage_tester.get_procentage_left()
+            if not self.voltage_procentage:
+                self.voltage_procentage = 50
+            
+
             self.server.update_data(
                 num_now=num_now,
                 d_front=d_front,
@@ -80,8 +91,13 @@ class MainManager:
                 latest_data=latest_data,
                 warning_status=status,
                 ID_to_color = ID_to_color,
-                ID_to_class = ID_to_class
+                ID_to_class = ID_to_class,
+                voltage_procentage = self.voltage_procentage
             )
+
+            
+
+
 
         else:
             # When the loop it run through after stop is pressed

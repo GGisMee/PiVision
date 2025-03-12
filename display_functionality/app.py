@@ -32,7 +32,8 @@ class WebServer:
             "d_front": '-',
             "d_close": '-',
             "num_now": '-',
-            'status': 0
+            'status': 0,
+            'procentage_voltage':100
         }
         self.running = False
         self.reference_main_manager = main_manager
@@ -104,19 +105,25 @@ class WebServer:
             vehicle_class = ID_to_class[vehicle_id]
             vehicle_width, vehicle_height = self.ID_to_area_p[vehicle_class]
             
+            x = float(vehicle[1]+self.width/2)
+            y = float(vehicle[2])
+            dx = float(vehicle[3])
+            dy = float(vehicle[4])
+            color = f"rgb({color[0]}, {color[1]}, {color[2]})"
 
             #* Add ID_to_area_p for car_wh/bus_wh/truck_wh
             vehicles.append({
                 "id": vehicle_id,
-                "x": float(vehicle[1])+self.width/2, # put it in the middle if 0
-                "y": float(vehicle[2]),
-                "dx": float(vehicle[3]),
-                "dy": float(vehicle[4]),
-                "color": color if isinstance(color, str) else f"rgb({color[0]}, {color[1]}, {color[2]})",
+                "x": x, # put it in the middle if 0
+                "y": y,
+                "dx": dx,
+                "dy": dy,
+                "color": color,
                 "width":vehicle_width,
                 "height":vehicle_height
             })
         self.socketio.emit("vehicle_update", {"vehicles": vehicles})
+
 
     def handle_connect(self):
         self.log("Client connected")
@@ -161,7 +168,16 @@ class WebServer:
         
         return processed_data
 
-    def update_data(self, d_front: float, d_close: float, num_now: int, latest_data: np.ndarray, ID_to_color: dict, ID_to_class:dict, warning_status: int):
+    def update_data(
+            self, 
+            d_front: float, 
+            d_close: float, 
+            num_now: int, 
+            latest_data: np.ndarray, 
+            ID_to_color: dict, 
+            ID_to_class:dict,
+            warning_status: int, 
+            voltage_procentage: int):
         """
         Update dashboard data and send to clients.
         
@@ -183,6 +199,9 @@ class WebServer:
         # Process vehicle data for rendering
         processed_data = self.process_data(latest_data)
         
+        if d_front == np.inf:
+            d_front = 0
+
         # Update current data for dashboard
         self.current_data.update({
             "time": time_str,
@@ -190,6 +209,7 @@ class WebServer:
             "num_now": num_now,
             "status": warning_status,
             "d_close": d_close,
+            "procentage_voltage": voltage_procentage
         })
         
         # Send vehicle data for canvas rendering

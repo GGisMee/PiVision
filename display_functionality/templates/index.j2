@@ -76,7 +76,7 @@
                 ctx.beginPath();
                 let width = this.width;
                 let height = this.height;
-                console.log(this.startX, this.targetX, easedProgress);
+                // console.log(this.startX, this.targetX, easedProgress);
 
                 ctx.roundRect(-width/2, -height, width, height, width/5); // -25 if x start coord, -50 is y start coord
                 // 50 width ,100 height and 10 is for the roundness on the corners
@@ -140,11 +140,12 @@
             
             // Listen for dashboard updates
             socket.on('update', function(data) {
+                updateStatus(data.status);
                 document.getElementById("d_front").innerText = data["d_front"];
                 document.getElementById("time").innerText = data["time"];
                 document.getElementById("num_now").innerText = data["num_now"];
                 document.getElementById("d_close").innerText = data["d_close"];
-                updateStatus(data.status);
+                updateBatteryIcon(data["procentage_voltage"])
                 console.log('Dashboard data received', data);
             });
             
@@ -170,27 +171,34 @@
             });
         }
         
-        // Update battery icon based on level
-        function updateBatteryIcon(level) {
-            var batteryIcon = document.getElementById("batteryIcon");
-            console.log("Battery data received ", level);
+        function updateBatteryIcon(procentage_voltage) {
+            // First, get the container element
+            var batteryContainer = document.getElementById("batteryIcon");
+            // Then, get the first i element inside it
+            var batteryIcon = batteryContainer.querySelector("i");
 
-            batteryIcon.classList.remove(
-                "fa-battery-full", 
-                "fa-battery-half", 
-                "fa-battery-quarter", 
-                "fa-battery-empty"
-            );
-            
+            // Convert to number if it's a string
+            const level = Number(procentage_voltage);
+
+            // Clear the container's HTML and create a fresh icon with the correct class
+            batteryContainer.innerHTML = "";
+
+            let newIcon = document.createElement("i");
+
+            // Set the appropriate class
             if (level > 75) {
-                batteryIcon.classList.add("fa-battery-full");
+                newIcon.className = "fas fa-battery-full";
             } else if (level > 50) {
-                batteryIcon.classList.add("fa-battery-half");
+                newIcon.className = "fas fa-battery-half";
             } else if (level > 25) {
-                batteryIcon.classList.add("fa-battery-quarter");
+                newIcon.className = "fas fa-battery-quarter";
             } else {
-                batteryIcon.classList.add("fa-battery-empty");
+                newIcon.className = "fas fa-battery-empty";
             }
+
+            // Add the new icon to the container
+            batteryContainer.appendChild(newIcon);
+
         }
 
         // Process vehicle data from server
