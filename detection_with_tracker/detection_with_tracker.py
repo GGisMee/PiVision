@@ -277,6 +277,7 @@ class DetectionManager:
         
         #* Get frame
         frame=self.framegrabber.get_frame(self.frame_number_handler.fps, self.frame_number_handler.current_frame)
+        cv2.imwrite(filename='output/frame.png', img = frame) #! remove after debug
         if isinstance(frame, int):
             if frame == 1:
                 return True # If last frame is reached

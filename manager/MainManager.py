@@ -30,7 +30,11 @@ class MainManager:
         parameters = Parameters()
         parameters.set_model_paths(hef_path='model/yolov10n.hef', labels_path="detection_with_tracker/coco.txt")
         if not rpicam:
-            parameters.set_input_video(input_video_path='output/videos/recorded_video8.mp4')
+            crop_imaging = 'output/videos/crop_for_imaging_8.mp4'
+            from_school = 'output/videos/no_fskola.mp4'
+            from_home = 'output/videos/hemma1.mp4'
+            
+            parameters.set_input_video(input_video_path=crop_imaging)
         parameters.set_displaying(displayFrame=False,save_frame_debug=True)
         return parameters
     
@@ -76,10 +80,10 @@ class MainManager:
                 self.buzzer_manager.check_play(status=status)
 
             else:
-                self.buzzer_manager.play()
+                self.buzzer_manager.check_play(status=0)
                 continue
             
-            self.voltage_procentage = self.voltage_tester.get_procentage_left()
+            self.voltage_procentage = self.voltage_tester.get_percentage_left()
             if not self.voltage_procentage:
                 self.voltage_procentage = 50
             

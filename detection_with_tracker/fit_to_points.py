@@ -107,31 +107,46 @@ class PolyFitting:
         return d
 
 
-
-
-    def view(self, dy:np.ndarray,dx:np.ndarray,t:np.ndarray, coming_t:np.ndarray, coming_d_x:np.ndarray, coming_d_y:np.ndarray):
-        if not self.viewing and not self.saving:
-            return
-        plt.scatter(t, dx, color='red', label='X')
-        plt.scatter(t, dy, color='blue', label='Y')
-        plt.plot(coming_t, coming_d_x, color='red', label='coming X')
-        plt.plot(coming_t, coming_d_y, color='blue', label='coming Y')
-        plt.legend()
-        plt.grid()
-        plt.xlabel('t')
-        plt.ylabel('s')
-        plt.grid()
-        if self.viewing:
-            plt.show()
-        if self.saving:
-            if not os.path.exists('output'):
-                return
-            plt.savefig('output/distance', dpi=300)
-            plt.close()
+def plot_regression(index: int, future_time: float = 3, save_path: str = "regression_plot.png"):
+    # Get data
+    s, t = Dataset.give_data(index)
+    
+    # Convert deque to numpy arrays
+    s = np.array(s)
+    t = np.array(t)
+    
+    # Fit linear regression
+    poly_fit = PolyFitting(degree=1)
+    coeffs = poly_fit.get_regression_model(s, t)
+    
+    # Generate regression line
+    t_fit = np.linspace(min(t), max(t) + future_time, 100)
+    s_fit = np.polyval(coeffs, t_fit)
+    
+    # Predict future value
+    future_s = np.polyval(coeffs, max(t) + future_time)
+    
+    # Set dark mode
+    plt.style.use('dark_background')
+    
+    # Plot data
+    plt.figure(figsize=(8, 6))
+    plt.scatter(t, s, label='Original Data', color='cyan')
+    plt.plot(t_fit, s_fit, label='Linear Regression', color='red')
+    plt.scatter([max(t) + future_time], [future_s], color='lime', label=f'Prediction (+{future_time}s)')
+    
+    # Labels and legend
+    plt.xlabel('Time (t)', color='white')
+    plt.ylabel('Distance (d)', color='white')
+    plt.title(f'Linear Regression and Predictions', color='white')
+    plt.legend()
+    plt.grid(color='gray')
+    
+    # Save plot
+    plt.savefig(save_path)
+    plt.close()
 
 if __name__ == '__main__':
     'Example of how it might look'
-    # poly_fitter = PolyFitting(degree=1,weight_function_info={'scale_factor': 30, 'mode':'exponential', 'min_weight':0.1, 'decay_rate':100, 'max_weight':1},saving = True, viewing=False)
-    #s,t = Dataset.give_data(1)
-    # data = UpdatedData.data
-    # open_image_in_vscode('output/distance.png')
+    plot_regression(0)
+

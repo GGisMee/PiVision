@@ -1,7 +1,7 @@
 import lgpio
 import time
 
-BUZZER_PIN = 3
+BUZZER_PIN = 4
 FREQ = 2500  # Frekvens i Hz
 
 # Öppna GPIO-chip
