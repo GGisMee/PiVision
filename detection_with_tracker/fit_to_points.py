@@ -107,7 +107,7 @@ class PolyFitting:
         return d
 
 
-def plot_regression(index: int, future_time: float = 3, save_path: str = "regression_plot.png"):
+def plot_regression(index: int, future_time: float = 3, save_path: str = "regression_plot_white.png"):
     # Get data
     s, t = Dataset.give_data(index)
     
@@ -127,20 +127,20 @@ def plot_regression(index: int, future_time: float = 3, save_path: str = "regres
     future_s = np.polyval(coeffs, max(t) + future_time)
     
     # Set dark mode
-    plt.style.use('dark_background')
     
     # Plot data
     plt.figure(figsize=(8, 6))
-    plt.scatter(t, s, label='Original Data', color='cyan')
-    plt.plot(t_fit, s_fit, label='Linear Regression', color='red')
-    plt.scatter([max(t) + future_time], [future_s], color='lime', label=f'Prediction (+{future_time}s)')
+    plt.scatter(t, s, label='Original Data', color='blue', zorder = 3)
+    plt.scatter([max(t) + future_time], [future_s], color='lime', label=f'Prediction (+{future_time}s)', zorder=4)
+
+    plt.plot(t_fit, s_fit, label='Linear Regression', color='red', zorder = 2)
     
     # Labels and legend
-    plt.xlabel('Time (t)', color='white')
-    plt.ylabel('Distance (d)', color='white')
+    plt.xlabel('Time (t)', color='black')
+    plt.ylabel('Distance (d)', color='black')
     plt.title(f'Linear Regression and Predictions', color='white')
     plt.legend()
-    plt.grid(color='gray')
+    plt.grid(color='black')
     
     # Save plot
     plt.savefig(save_path)

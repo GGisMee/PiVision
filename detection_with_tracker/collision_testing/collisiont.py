@@ -66,5 +66,5 @@ def plot_data_with_models(time, distance):
     plt.grid(True)
     plt.show()
 
-
-plot_data_with_models(t14, s14)
+if __name__ == '__main__':
+    plot_data_with_models(t14, s14)
