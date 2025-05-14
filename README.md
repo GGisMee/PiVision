@@ -1,6 +1,7 @@
 ### **PiVision – Mobilt Förarstödssystem**
 
 #### _Gymnasiearbete av Gustav Gamstedt & Liam Thorsén_
+![](ReadMe_files/Fram.gif)
 
 ---
 
@@ -25,7 +26,7 @@ Projektet adresserar bristen på moderna säkerhetsfunktioner (t.ex. kollisionsv
 - **Sensorer**: Spänningsmätning, summer för varningar    
 - **3D-printade komponenter**: Hållare, batterifack, vindrutefäste.
     
-
+![](ReadMe_files/tekoversikt.png)
 ### **Mjukvara**
 - **Python** med bibliotek:
     - `picamera2` (bildhantering).
@@ -59,7 +60,7 @@ Projektet adresserar bristen på moderna säkerhetsfunktioner (t.ex. kollisionsv
     - 9-stegs trafikljus (grön → orange → röd) baserat på kollisionsrisk.
     - Summer vid hög risk.
 - **Batteriövervakning**: Visar laddningsnivå på webbgränssnittet.
-    
+![](ReadMe_files/funktion.png)
 ---
 
 ## Rapport
@@ -88,7 +89,7 @@ Se rapporten för fler illustrationer och förklaringar.
 ## **Referenser & Tack**
 
 - **Handledare**: Pär Henriksson (Hitachigymnasiet), Agustin Corbat (Uppsala universitet).
-- **Källor**: Hailo AI, Raspberry Pi, Python-bibliotek. Se fullständig referenslista.
+- **Källor**: Hailo AI, Raspberry Pi, Python-bibliotek. Se fullständig referenslista i rapporten.
     
 
 ---
