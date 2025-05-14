@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "979ab6409b6c90aa",
+        "id": "6af474a07048db76",
         "type": "tabs",
         "children": [
           {
-            "id": "6c5691b5e08d9e61",
+            "id": "824b5ec11eb442e0",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -168,10 +168,11 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "6c5691b5e08d9e61",
+  "active": "824b5ec11eb442e0",
   "lastOpenFiles": [
-    "ReadMe_files.md",
+    "ReadMe_files/PiVision.md",
     "README.md",
+    "ReadMe_files.md",
     "ReadMe_files/PiVision - Gymnasiearbete - Grupp 26.pdf",
     "ReadMe_files",
     "ReadMe_pictures/Gymnasiearbete_html_fd628dba9ffa099c.jpg",
